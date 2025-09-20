@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+class InventoryPage extends StatefulWidget {
+  const InventoryPage({super.key});
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
+  State<InventoryPage> createState() => _InventoryPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _InventoryPageState extends State<InventoryPage> {
   bool isHoverInventory = false;
   bool isHoverSales = false;
   bool isHoverDelivery = false;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_applicationtest/pages/dashboard_page.dart';
+import 'package:flutter_applicationtest/pages/inventory_page.dart';
+import 'package:flutter_applicationtest/pages/inventory_page.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:snippet_coder_utils/FormHelper.dart';
 
@@ -167,7 +168,7 @@ class LoginPageState extends State<LoginPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const DashboardPage(),
+                        builder: (context) => const InventoryPage(),
                       ),
                     );
                   }

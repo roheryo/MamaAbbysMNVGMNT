@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_applicationtest/pages/dashboard_page.dart';
+import 'package:flutter_applicationtest/pages/inventory_page.dart';
 import 'package:flutter_applicationtest/pages/login_page.dart';
+import 'package:flutter_applicationtest/pages/sales_page.dart';
 import 'pages/register_page.dart';
 
 void main() {
@@ -33,11 +34,12 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      initialRoute: '/dashboard',
+      initialRoute: '/sales',
       routes: {
         '/': (context) => LoginPage(),
         '/register': (context) => RegisterPage(),
-        '/dashboard': (context) => DashboardPage(),
+        '/inventory': (context) => InventoryPage(),
+        '/sales': (context) => SalesPage(),
       },
     );
   }
