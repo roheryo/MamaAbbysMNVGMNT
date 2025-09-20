@@ -10,6 +10,13 @@ class DeliveryPage extends StatefulWidget {
 }
 
 class _DeliveryPageState extends State<DeliveryPage> {
+  // Sample delivery details (replace with real data later)
+  final List<Map<String, dynamic>> deliveries = [
+    {"id": "DEL-001", "customer": "John Doe", "status": "Pending"},
+    {"id": "DEL-002", "customer": "Jane Smith", "status": "On the way"},
+    {"id": "DEL-003", "customer": "Mark Lee", "status": "Delivered"},
+  ];
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -91,16 +98,55 @@ class _DeliveryPageState extends State<DeliveryPage> {
 
           const SizedBox(height: 12),
 
-          // ===== Delivery Page Content (Placeholder) =====
+          // ===== Delivery Details Container =====
           Expanded(
-            child: Center(
-              child: Text(
-                "Delivery content goes here...",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black54,
-                ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ListView.builder(
+                itemCount: deliveries.length,
+                itemBuilder: (context, index) {
+                  final delivery = deliveries[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          // Left side: Delivery info
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  delivery["id"],
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text("Customer: ${delivery['customer']}"),
+                                Text("Status: ${delivery['status']}"),
+                              ],
+                            ),
+                          ),
+
+                          // Right side: Action button
+                          ElevatedButton(
+                            onPressed: () {
+                              print("Manage ${delivery['id']}");
+                            },
+                            child: const Text("Manage"),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
