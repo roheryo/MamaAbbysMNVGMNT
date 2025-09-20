@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'sales_page.dart';
+import 'delivery_page.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key});
@@ -8,45 +10,66 @@ class InventoryPage extends StatefulWidget {
 }
 
 class _InventoryPageState extends State<InventoryPage> {
-  bool isHoverInventory = false;
-  bool isHoverSales = false;
-  bool isHoverDelivery = false;
-
-  // For dropdown filter
   String selectedCategory = 'All';
   final List<String> categories = ['All', 'Electronics', 'Food', 'Clothing'];
 
-  // Sample product data
   final List<Map<String, dynamic>> products = [
-    {
-      'name': 'Product 1',
-      'stock': 10,
-      'price': 150,
-      'image': 'assets/images/product1.jpg',
-    },
-    {
-      'name': 'Product 2',
-      'stock': 5,
-      'price': 250,
-      'image': 'assets/images/product2.jpg',
-    },
-    {
-      'name': 'Product 3',
-      'stock': 20,
-      'price': 100,
-      'image': 'assets/images/product3.jpg',
-    },
+    {'name': 'Product 1', 'stock': 10, 'price': 150},
+    {'name': 'Product 2', 'stock': 5, 'price': 250},
+    {'name': 'Product 3', 'stock': 20, 'price': 100},
   ];
+
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 30, color: color),
+            const SizedBox(height: 6),
+            isActive
+                ? Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: color, width: 2),
+                      ),
+                    ),
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
       body: Column(
         children: [
-          // Header
+          // ===== Header =====
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(
@@ -91,8 +114,6 @@ class _InventoryPageState extends State<InventoryPage> {
                     ],
                   ),
                 ),
-
-                // Notification & Settings Icons
                 Row(
                   children: [
                     IconButton(
@@ -122,7 +143,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
           const SizedBox(height: 20),
 
-          // Search Box
+          // ===== Search Box =====
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
@@ -148,7 +169,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
           const SizedBox(height: 16),
 
-          // All Categories and Filter
+          // ===== Category Filter =====
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -182,7 +203,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
           const SizedBox(height: 16),
 
-          // Scrollable products list container
+          // ===== Products List =====
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -200,7 +221,6 @@ class _InventoryPageState extends State<InventoryPage> {
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          // Left Column with product name, stock, price
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,14 +234,12 @@ class _InventoryPageState extends State<InventoryPage> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  "In Stock: ${product['stock']} | Price: \$${product['price']}",
+                                  "In Stock: ${product['stock']} | Price: ${product['price']}",
                                   style: const TextStyle(fontSize: 14),
                                 ),
                               ],
                             ),
                           ),
-
-                          // Placeholder square for product image
                           Container(
                             width: 60,
                             height: 60,
@@ -234,10 +252,7 @@ class _InventoryPageState extends State<InventoryPage> {
                               child: Icon(Icons.image, color: Colors.grey),
                             ),
                           ),
-
                           const SizedBox(width: 12),
-
-                          // Sell button
                           ElevatedButton(
                             onPressed: () {
                               print("Sell ${product['name']}");
@@ -253,113 +268,48 @@ class _InventoryPageState extends State<InventoryPage> {
             ),
           ),
 
-          // Bottom Row of clickable icons
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          // ===== Bottom Navigation =====
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Colors.grey.shade300)),
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Inventory
-                Expanded(
-                  child: MouseRegion(
-                    onEnter: (_) => setState(() => isHoverInventory = true),
-                    onExit: (_) => setState(() => isHoverInventory = false),
-                    child: GestureDetector(
-                      onTap: () {
-                        print("Inventory clicked");
-                      },
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.inventory,
-                            size: 30,
-                            color: isHoverInventory
-                                ? Colors.blueAccent
-                                : Colors.blue,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            "Inventory",
-                            style: TextStyle(
-                              color: isHoverInventory
-                                  ? Colors.black
-                                  : Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                _buildNavItem(
+                  icon: Icons.inventory,
+                  label: "Inventory",
+                  isActive: true,
+                  color: Colors.blue,
+                  onTap: () {
+                    // already on Inventory
+                  },
                 ),
-
-                // Sales
-                Expanded(
-                  child: MouseRegion(
-                    onEnter: (_) => setState(() => isHoverSales = true),
-                    onExit: (_) => setState(() => isHoverSales = false),
-                    child: GestureDetector(
-                      onTap: () {
-                        print("Sales clicked");
-                      },
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.bar_chart,
-                            size: 30,
-                            color: isHoverSales
-                                ? Colors.greenAccent
-                                : Colors.green,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            "Sales",
-                            style: TextStyle(
-                              color: isHoverSales ? Colors.black : Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                _buildNavItem(
+                  icon: Icons.bar_chart,
+                  label: "Sales",
+                  isActive: false,
+                  color: Colors.green,
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SalesPage()),
+                    );
+                  },
                 ),
-
-                // Delivery
-                Expanded(
-                  child: MouseRegion(
-                    onEnter: (_) => setState(() => isHoverDelivery = true),
-                    onExit: (_) => setState(() => isHoverDelivery = false),
-                    child: GestureDetector(
-                      onTap: () {
-                        print("Delivery clicked");
-                      },
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.local_shipping,
-                            size: 30,
-                            color: isHoverDelivery
-                                ? Colors.orangeAccent
-                                : Colors.orange,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            "Delivery",
-                            style: TextStyle(
-                              color: isHoverDelivery
-                                  ? Colors.black
-                                  : Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                _buildNavItem(
+                  icon: Icons.local_shipping,
+                  label: "Delivery",
+                  isActive: false,
+                  color: Colors.orange,
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DeliveryPage()),
+                    );
+                  },
                 ),
               ],
             ),

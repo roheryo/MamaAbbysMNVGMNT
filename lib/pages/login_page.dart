@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/pages/inventory_page.dart';
-import 'package:flutter_applicationtest/pages/inventory_page.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:snippet_coder_utils/FormHelper.dart';
 
@@ -33,8 +32,8 @@ class LoginPageState extends State<LoginPage> {
     return SafeArea(
       child: Scaffold(
         body: Container(
-          width: double.infinity, // 👈 fills the width of the screen
-          height: double.infinity, // 👈 fills the height of the screen
+          width: double.infinity, //
+          height: double.infinity, //
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
