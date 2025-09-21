@@ -12,7 +12,15 @@ class InventoryPage extends StatefulWidget {
 
 class _InventoryPageState extends State<InventoryPage> {
   String selectedCategory = 'All';
-  final List<String> categories = ['All', 'Electronics', 'Food', 'Clothing'];
+  bool isSelectionMode = false;
+  final Set<int> selectedProducts = {};
+
+  final List<String> categories = [
+    'All',
+    'TJ Hotdog',
+    'Epoys Hotdog',
+    'Van Hotdog',
+  ];
 
   final List<Map<String, dynamic>> products = [
     {'name': 'Product 1', 'stock': 10, 'price': 150},
@@ -132,7 +140,7 @@ class _InventoryPageState extends State<InventoryPage> {
                         color: Colors.blue,
                         iconSize: 24,
                         onPressed: () {
-                          Navigator.pushReplacement(
+                          Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => const SettingsPage(),
@@ -207,7 +215,60 @@ class _InventoryPageState extends State<InventoryPage> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+
+          // ===== Buttons Row =====
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                // Add button on the left
+                ElevatedButton(
+                  onPressed: () {
+                    print("Add button clicked");
+                  },
+                  child: const Text("Add"),
+                ),
+
+                const Spacer(), // Push next buttons to the right
+                // Select / Cancel button
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      isSelectionMode = !isSelectionMode;
+                      selectedProducts.clear();
+                    });
+                  },
+                  child: Text(isSelectionMode ? "Cancel" : "Select"),
+                ),
+
+                const SizedBox(width: 8),
+
+                // Delete button (only visible in selection mode with items selected)
+                if (isSelectionMode && selectedProducts.isNotEmpty)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        selectedProducts.toList().sort(
+                          (b, a) => a.compareTo(b),
+                        );
+                        for (var i in selectedProducts) {
+                          products.removeAt(i);
+                        }
+                        selectedProducts.clear();
+                        isSelectionMode = false;
+                      });
+                    },
+                    child: const Text("Delete"),
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
 
           // ===== Products List =====
           Expanded(
@@ -227,6 +288,33 @@ class _InventoryPageState extends State<InventoryPage> {
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
+                          if (isSelectionMode)
+                            Checkbox(
+                              value: selectedProducts.contains(index),
+                              onChanged: (value) {
+                                setState(() {
+                                  if (value == true) {
+                                    selectedProducts.add(index);
+                                  } else {
+                                    selectedProducts.remove(index);
+                                  }
+                                });
+                              },
+                            ),
+                          // ===== Move image to the left =====
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade500),
+                            ),
+                            child: const Center(
+                              child: Icon(Icons.image, color: Colors.grey),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,18 +332,6 @@ class _InventoryPageState extends State<InventoryPage> {
                                   style: const TextStyle(fontSize: 14),
                                 ),
                               ],
-                            ),
-                          ),
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade500),
-                            ),
-                            child: const Center(
-                              child: Icon(Icons.image, color: Colors.grey),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -289,9 +365,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   label: "Inventory",
                   isActive: true,
                   color: Colors.blue,
-                  onTap: () {
-                    // already on Inventory
-                  },
+                  onTap: () {},
                 ),
                 _buildNavItem(
                   icon: Icons.bar_chart,
