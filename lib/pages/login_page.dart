@@ -82,7 +82,7 @@ class LoginPageState extends State<LoginPage> {
                   alignment: Alignment.center,
                   child: Image.asset(
                     "assets/images/mamaabbys.jpg",
-                    width: 250,
+                    width: 200,
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -203,10 +203,6 @@ class LoginPageState extends State<LoginPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  "Create an Account. ",
-                  style: TextStyle(color: Colors.white),
-                ),
                 MouseRegion(
                   cursor: SystemMouseCursors.click,
                   onEnter: (_) {

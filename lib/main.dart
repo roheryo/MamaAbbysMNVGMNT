@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_applicationtest/pages/add_page.dart';
 import 'package:flutter_applicationtest/pages/editprices_page.dart';
 import 'package:flutter_applicationtest/pages/inventory_page.dart';
 import 'package:flutter_applicationtest/pages/login_page.dart';
+import 'package:flutter_applicationtest/pages/notification_page.dart';
 import 'package:flutter_applicationtest/pages/sales_page.dart';
 import 'package:flutter_applicationtest/pages/settings_page.dart';
 import 'pages/register_page.dart';
@@ -17,6 +19,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
       theme: ThemeData(
         // This is the theme of your application.
@@ -38,12 +41,14 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/sales',
       routes: {
-        '/': (context) => LoginPage(),
+        '/login': (context) => LoginPage(),
         '/register': (context) => RegisterPage(),
         '/inventory': (context) => InventoryPage(),
         '/sales': (context) => SalesPage(),
         "/settings": (context) => SettingsPage(),
         "/editprice": (context) => EditpricesPage(),
+        "/addpage": (context) => AddPage(),
+        "/notification": (context) => NotificationPage(),
       },
     );
   }

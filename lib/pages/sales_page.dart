@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_applicationtest/pages/notification_page.dart';
 import 'package:flutter_applicationtest/pages/settings_page.dart';
 import 'package:intl/intl.dart';
 
@@ -181,7 +182,12 @@ class _SalesPageState extends State<SalesPage> {
                       color: Colors.blue,
                       iconSize: 24,
                       onPressed: () {
-                        print("Notifications clicked");
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationPage(),
+                          ),
+                        );
                       },
                     ),
                     Padding(

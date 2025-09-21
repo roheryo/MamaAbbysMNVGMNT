@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_applicationtest/pages/login_page.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:snippet_coder_utils/FormHelper.dart';
 
@@ -83,7 +84,7 @@ class RegisterPageState extends State<RegisterPage> {
                   alignment: Alignment.center,
                   child: Image.asset(
                     "assets/images/mamaabbys.jpg",
-                    width: 250,
+                    width: 200,
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -193,36 +194,44 @@ class RegisterPageState extends State<RegisterPage> {
 
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        "Already have an account? ",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      MouseRegion(
-                        onEnter: (_) => setState(() => isHovering = true),
-                        onExit: (_) => setState(() => isHovering = false),
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.pushNamed(context, '/');
-                          },
-                          child: Text(
-                            "Sign In Here",
-                            style: TextStyle(
-                              color: isHovering
-                                  ? Colors.blueAccent
-                                  : Colors.white,
-                              decoration: TextDecoration.underline,
-                              decorationColor: isHovering
-                                  ? Colors.blueAccent
-                                  : Colors.white,
-                              fontWeight: FontWeight.bold,
+                  child: Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text(
+                          "Already have an account? ",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        MouseRegion(
+                          onEnter: (_) => setState(() => isHovering = true),
+                          onExit: (_) => setState(() => isHovering = false),
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginPage(),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              "Sign In Here",
+                              style: TextStyle(
+                                color: isHovering
+                                    ? Colors.blueAccent
+                                    : Colors.white,
+                                decoration: TextDecoration.underline,
+                                decorationColor: isHovering
+                                    ? Colors.blueAccent
+                                    : Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
