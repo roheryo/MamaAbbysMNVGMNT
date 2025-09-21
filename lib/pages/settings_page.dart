@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_applicationtest/pages/editprices_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -71,10 +72,20 @@ class _SettingsPageState extends State<SettingsPage> {
             color: Colors.white,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
-              children: const [
-                Icon(Icons.settings, color: Colors.blue, size: 28),
-                SizedBox(width: 12),
-                Text(
+              children: [
+                // <-- Back Button -->
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context); // Go back to previous page
+                  },
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.blue,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
                   "SETTINGS",
                   style: TextStyle(
                     color: Colors.black,
@@ -102,8 +113,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     title: "Edit Prices",
                     subtitle: "Manage Product Prices",
                     onTap: () {
-                      print("Edit Prices clicked");
-                      // Navigator.push(context, MaterialPageRoute(builder: (_) => EditPricesPage()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const EditpricesPage(),
+                        ),
+                      );
                     },
                   ),
                   const SizedBox(height: 12),

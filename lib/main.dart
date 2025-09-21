@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_applicationtest/pages/editprices_page.dart';
 import 'package:flutter_applicationtest/pages/inventory_page.dart';
 import 'package:flutter_applicationtest/pages/login_page.dart';
 import 'package:flutter_applicationtest/pages/sales_page.dart';
@@ -42,6 +43,7 @@ class MyApp extends StatelessWidget {
         '/inventory': (context) => InventoryPage(),
         '/sales': (context) => SalesPage(),
         "/settings": (context) => SettingsPage(),
+        "/editprice": (context) => EditpricesPage(),
       },
     );
   }

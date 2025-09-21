@@ -87,7 +87,8 @@ class _DeliveryPageState extends State<DeliveryPage> {
                         color: Colors.blue,
                         iconSize: 24,
                         onPressed: () {
-                          Navigator.pushReplacement(
+                          // From InventoryPage
+                          Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => const SettingsPage(),
@@ -104,7 +105,6 @@ class _DeliveryPageState extends State<DeliveryPage> {
 
           const SizedBox(height: 12),
 
-          // ===== Delivery Details Container =====
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
