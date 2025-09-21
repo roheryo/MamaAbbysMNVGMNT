@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_applicationtest/pages/settings_page.dart';
 import 'inventory_page.dart';
 import 'sales_page.dart';
 
@@ -86,7 +87,12 @@ class _DeliveryPageState extends State<DeliveryPage> {
                         color: Colors.blue,
                         iconSize: 24,
                         onPressed: () {
-                          print("Settings clicked");
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsPage(),
+                            ),
+                          );
                         },
                       ),
                     ),

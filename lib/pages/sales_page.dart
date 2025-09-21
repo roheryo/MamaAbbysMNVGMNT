@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_applicationtest/pages/settings_page.dart';
 import 'package:intl/intl.dart';
 
 import 'inventory_page.dart'; // Create this file for InventoryPage
@@ -18,7 +19,7 @@ class _SalesPageState extends State<SalesPage> {
   // Track picked dates
   DateTime? selectedDate; // for Today
   DateTime? selectedWeek; // week start
-  DateTime? selectedMonth; // month picker (any date inside the month)
+  DateTime? selectedMonth; // month picker
 
   Future<void> _pickTodayDate(BuildContext context) async {
     final DateTime now = DateTime.now();
@@ -190,7 +191,12 @@ class _SalesPageState extends State<SalesPage> {
                         color: Colors.blue,
                         iconSize: 24,
                         onPressed: () {
-                          print("Settings clicked");
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsPage(),
+                            ),
+                          );
                         },
                       ),
                     ),
@@ -202,7 +208,7 @@ class _SalesPageState extends State<SalesPage> {
 
           const SizedBox(height: 12),
 
-          // ===== Filter Buttons (Today, Weekly, Monthly) =====
+          // Filter Buttons
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -251,7 +257,7 @@ class _SalesPageState extends State<SalesPage> {
 
           const SizedBox(height: 20),
 
-          // ===== Container that changes based on filter =====
+          // Filter
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
@@ -310,11 +316,9 @@ class _SalesPageState extends State<SalesPage> {
                 _buildNavItem(
                   icon: Icons.bar_chart,
                   label: "Sales",
-                  isActive: true, // current page
+                  isActive: true,
                   color: Colors.green,
-                  onTap: () {
-                    // already on SalesPage, do nothing
-                  },
+                  onTap: () {},
                 ),
                 _buildNavItem(
                   icon: Icons.local_shipping,

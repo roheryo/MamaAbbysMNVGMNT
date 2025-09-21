@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'sales_page.dart';
 import 'delivery_page.dart';
+import 'settings_page.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key});
@@ -131,7 +132,12 @@ class _InventoryPageState extends State<InventoryPage> {
                         color: Colors.blue,
                         iconSize: 24,
                         onPressed: () {
-                          print("Settings clicked");
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SettingsPage(),
+                            ),
+                          );
                         },
                       ),
                     ),

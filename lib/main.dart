@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/pages/inventory_page.dart';
 import 'package:flutter_applicationtest/pages/login_page.dart';
 import 'package:flutter_applicationtest/pages/sales_page.dart';
+import 'package:flutter_applicationtest/pages/settings_page.dart';
 import 'pages/register_page.dart';
 
 void main() {
@@ -40,6 +41,7 @@ class MyApp extends StatelessWidget {
         '/register': (context) => RegisterPage(),
         '/inventory': (context) => InventoryPage(),
         '/sales': (context) => SalesPage(),
+        "/settings": (context) => SettingsPage(),
       },
     );
   }
