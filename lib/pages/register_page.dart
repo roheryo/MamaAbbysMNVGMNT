@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/pages/login_page.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:snippet_coder_utils/FormHelper.dart';
+import 'package:flutter_applicationtest/services/api_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -20,6 +22,23 @@ class RegisterPageState extends State<RegisterPage> {
   String? password;
   bool isHovering = false;
 
+  late final ApiService api;
+
+  @override
+  void initState() {
+    super.initState();
+    api = ApiService(baseUrl: _getBaseUrl());
+  }
+
+  String _getBaseUrl() {
+    if (kIsWeb) return 'http://localhost:3000';
+    try {
+      // If you still need mobile later:
+      // if (Platform.isAndroid) return 'http://10.0.2.2:3000';
+    } catch (_) {}
+    return 'http://localhost:3000';
+  }
+
   bool validateAndSave() {
     final form = globalFormKey.currentState;
     if (form != null && form.validate()) {
@@ -27,6 +46,29 @@ class RegisterPageState extends State<RegisterPage> {
       return true;
     }
     return false;
+  }
+
+  Future<void> _submit() async {
+    if (!validateAndSave()) return;
+    setState(() => isAPIcallProcess = true);
+    try {
+      await api.register(username!, email!, password!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Registered successfully')));
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Register failed: $e')));
+    } finally {
+      if (mounted) setState(() => isAPIcallProcess = false);
+    }
   }
 
   @override
@@ -102,7 +144,6 @@ class RegisterPageState extends State<RegisterPage> {
               ),
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
             child: Column(
@@ -171,9 +212,7 @@ class RegisterPageState extends State<RegisterPage> {
                       child: FormHelper.submitButton(
                         "Register",
                         () {
-                          if (validateAndSave()) {
-                            print("Register with $username, $email, $password");
-                          }
+                          _submit();
                         },
                         btnColor: isRegisterHovering
                             ? Colors.blue
@@ -189,9 +228,7 @@ class RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Center(

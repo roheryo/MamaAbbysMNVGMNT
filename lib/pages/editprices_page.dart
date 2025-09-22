@@ -78,7 +78,7 @@ class _EditPricesPage extends State<EditpricesPage> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedProduct,
+                    initialValue: selectedProduct,
                     hint: const Text("Choose a product"),
                     items: products.map((String product) {
                       return DropdownMenuItem<String>(

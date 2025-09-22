@@ -36,6 +36,7 @@ dependencies:
   snippet_coder_utils: ^1.0.9
   cupertino_icons: ^1.0.8
   modal_progress_hud_nsn: ^0.3.0
+  http: ^1.5.0
 
 dev_dependencies:
   flutter_test:
