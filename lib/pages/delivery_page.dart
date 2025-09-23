@@ -238,28 +238,49 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 Row(
                   children: [
                     if (isSelectionMode) ...[
-                      ElevatedButton.icon(
-                        onPressed: selectedDeliveries.isEmpty
-                            ? null
-                            : _deleteSelected,
-                        icon: const Icon(Icons.delete),
-                        label: const Text("Delete"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
+                      SizedBox(
+                        height: 36, // make smaller height
+                        child: ElevatedButton.icon(
+                          onPressed: selectedDeliveries.isEmpty
+                              ? null
+                              : _deleteSelected,
+                          icon: const Icon(Icons.delete, size: 16),
+                          label: const Text("Delete"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            minimumSize: const Size(
+                              80,
+                              36,
+                            ), // min width & height
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            textStyle: const TextStyle(fontSize: 12),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            isSelectionMode = false;
-                            selectedDeliveries.clear();
-                          });
-                        },
-                        icon: const Icon(Icons.close),
-                        label: const Text("Cancel"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey,
+                      const SizedBox(width: 6),
+                      SizedBox(
+                        height: 36,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              isSelectionMode = false;
+                              selectedDeliveries.clear();
+                            });
+                          },
+                          icon: const Icon(Icons.close, size: 16),
+                          label: const Text("Cancel"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey,
+                            minimumSize: const Size(80, 36),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            textStyle: const TextStyle(fontSize: 12),
+                          ),
                         ),
                       ),
                     ] else
@@ -270,6 +291,14 @@ class _DeliveryPageState extends State<DeliveryPage> {
                             selectedDeliveries.clear();
                           });
                         },
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(80, 36),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
                         child: const Text("Select"),
                       ),
                   ],
@@ -277,7 +306,6 @@ class _DeliveryPageState extends State<DeliveryPage> {
               ],
             ),
           ),
-
           SizedBox(height: screenWidth * 0.03),
 
           // ===== Delivery List =====
@@ -355,8 +383,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     ),
             ),
           ),
-
-          // ===== Bottom Navigation =====
+          //  Bottom Navigation
           Container(
             padding: EdgeInsets.symmetric(
               horizontal: screenWidth * 0.05,
@@ -388,7 +415,10 @@ class _DeliveryPageState extends State<DeliveryPage> {
                           color: Colors.blue,
                         ),
                         SizedBox(height: screenWidth * 0.015),
-                        const Text("Inventory"),
+                        const Text(
+                          "Inventory",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                   ),
@@ -410,7 +440,10 @@ class _DeliveryPageState extends State<DeliveryPage> {
                           color: Colors.green,
                         ),
                         SizedBox(height: screenWidth * 0.015),
-                        const Text("Sales"),
+                        const Text(
+                          "Sales",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                   ),
@@ -436,7 +469,10 @@ class _DeliveryPageState extends State<DeliveryPage> {
                               ),
                             ),
                           ),
-                          child: const Text("Delivery"),
+                          child: const Text(
+                            "Delivery",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
