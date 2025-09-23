@@ -134,9 +134,9 @@ class RegisterPageState extends State<RegisterPage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 20, bottom: 10, top: 80),
+            padding: const EdgeInsets.only(left: 40, bottom: 10, top: 80),
             child: Text(
-              "Sign in",
+              "Sign up",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 40,

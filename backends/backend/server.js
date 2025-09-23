@@ -5,8 +5,9 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");
 
 const { init, all, get, run } = require("./db");
-
+const cors = require("cors");
 const app = express();
+app.use(cors({ origin: true }));
 app.use(cors());
 app.use(express.json());
 
@@ -16,15 +17,17 @@ init();
 // Health
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-// Auth - register
+/// Auth - register
 app.post("/auth/register", async (req, res) => {
   try {
     const { username, email, password } = req.body || {};
+    console.log("Register attempt:", { username, email }); // debug
     if (!username || !email || !password) {
       return res
         .status(400)
         .json({ error: "username, email, and password are required" });
     }
+
     const existing = await get(
       "SELECT id FROM users WHERE username = ? OR email = ?",
       [username, email]
@@ -35,20 +38,31 @@ app.post("/auth/register", async (req, res) => {
         .json({ error: "username or email already exists" });
 
     const password_hash = await bcrypt.hash(password, 10);
-    const result = await run(
-      "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
-      [username, email, password_hash]
-    );
-    const created = await get(
-      "SELECT id, username, email, created_at FROM users WHERE id = ?",
-      [result.id]
-    );
-    res.status(201).json(created);
+    try {
+      const result = await run(
+        "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+        [username, email, password_hash]
+      );
+      const created = await get(
+        "SELECT id, username, email, created_at FROM users WHERE id = ?",
+        [result.id]
+      );
+      return res.status(201).json(created);
+    } catch (e) {
+      const msg = `${e.message || e}`;
+      console.error("Register INSERT error:", msg);
+      if (msg.includes("UNIQUE constraint failed")) {
+        return res
+          .status(409)
+          .json({ error: "username or email already exists" });
+      }
+      return res.status(500).json({ error: "internal_error" });
+    }
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error("Register error:", e);
+    return res.status(500).json({ error: "internal_error" });
   }
 });
-
 // Todos - list
 app.get("/todos", async (req, res) => {
   try {

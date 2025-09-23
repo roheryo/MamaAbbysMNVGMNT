@@ -25,9 +25,9 @@ class _InventoryPageState extends State<InventoryPage> {
   ];
 
   final List<Map<String, dynamic>> products = [
-    {'name': 'Product 1', 'stock': 10, 'price': 150},
-    {'name': 'Product 2', 'stock': 5, 'price': 250},
-    {'name': 'Product 3', 'stock': 20, 'price': 100},
+    {'name': 'TJ Hotdog', 'stock': 10, 'price': 150},
+    {'name': 'Chicken Nuggets', 'stock': 5, 'price': 250},
+    {'name': '1kls Chicken Wings', 'stock': 20, 'price': 100},
   ];
 
   Widget _buildNavItem({
@@ -111,7 +111,7 @@ class _InventoryPageState extends State<InventoryPage> {
                             ),
                             SizedBox(height: 2),
                             Text(
-                              "Welcome To Inventory",
+                              "Manage Inventory",
                               style: TextStyle(
                                 color: Colors.black,
                                 fontSize: 12,

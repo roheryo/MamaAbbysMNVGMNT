@@ -12,27 +12,117 @@ class DeliveryPage extends StatefulWidget {
 }
 
 class _DeliveryPageState extends State<DeliveryPage> {
-  // Sample delivery details (replace with real data later)
-  final List<Map<String, dynamic>> deliveries = [
-    {"id": "DEL-001", "customer": "John Doe", "status": "Pending"},
-    {"id": "DEL-002", "customer": "Jane Smith", "status": "On the way"},
-    {"id": "DEL-003", "customer": "Mark Lee", "status": "Delivered"},
+  List<Map<String, dynamic>> deliveries = [
+    {
+      "id": "DEL-001",
+      "customer": "Jan Paul",
+      "location": "Tagum City, Pagsabangan",
+      "contact": "09171234567",
+      "product": "2x Chicken Adobo",
+      "status": "Pending",
+      "date": DateTime(2025, 9, 20, 10, 30),
+    },
+    {
+      "id": "DEL-002",
+      "customer": "Van Renzo",
+      "location": "Tagum City, Osmena Extension",
+      "contact": "09181234567",
+      "product": "1x Beef Steak",
+      "status": "On the way",
+      "date": DateTime(2025, 9, 22, 15, 00),
+    },
+    {
+      "id": "DEL-003",
+      "customer": "Roger",
+      "location": "Tagum City, Magugpo Poblacion",
+      "contact": "09191234567",
+      "product": "3x Pork Sinigang",
+      "status": "Delivered",
+      "date": DateTime(2025, 9, 23, 18, 45),
+    },
+    {
+      "id": "DEL-004",
+      "customer": "Mia",
+      "location": "Tagum City, Apokon",
+      "contact": "09201234567",
+      "product": "2x Spaghetti",
+      "status": "Overdue",
+      "date": DateTime(2025, 9, 19, 9, 15),
+    },
   ];
+
+  DateTime? selectedDateTime;
+
+  bool isSelectionMode = false;
+  Set<String> selectedDeliveries = {};
+
+  Future<void> _pickDateTime() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: selectedDateTime ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (pickedDate != null) {
+      final pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(selectedDateTime ?? DateTime.now()),
+      );
+      if (pickedTime != null) {
+        setState(() {
+          selectedDateTime = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case "Pending":
+        return Colors.orange;
+      case "On the way":
+        return Colors.blue;
+      case "Delivered":
+        return Colors.green;
+      case "Overdue":
+        return Colors.red;
+      default:
+        return Colors.black;
+    }
+  }
+
+  void _deleteSelected() {
+    setState(() {
+      deliveries.removeWhere((d) => selectedDeliveries.contains(d["id"]));
+      selectedDeliveries.clear();
+      isSelectionMode = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final filteredDeliveries = selectedDateTime == null
+        ? deliveries
+        : deliveries.where((delivery) {
+            final d = delivery["date"] as DateTime;
+            return d.year == selectedDateTime!.year &&
+                d.month == selectedDateTime!.month &&
+                d.day == selectedDateTime!.day;
+          }).toList();
 
     return Scaffold(
       body: Column(
         children: [
-          // ===== Header =====
+          // ===== HEADER =====
           Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.04,
-              vertical: 12,
-            ),
+            padding: EdgeInsets.all(screenWidth * 0.03),
             color: Colors.white,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -40,27 +130,29 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 Flexible(
                   child: Row(
                     children: [
-                      Image.asset("assets/images/mamaabbys.jpg", height: 60),
-                      const SizedBox(width: 12),
+                      Image.asset(
+                        "assets/images/mamaabbys.jpg",
+                        height: screenWidth * 0.15,
+                      ),
+                      SizedBox(width: screenWidth * 0.03),
                       Flexible(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
+                          children: [
                             Text(
                               "DELIVERY",
                               style: TextStyle(
                                 color: Colors.blue,
-                                fontSize: 20,
+                                fontSize: screenWidth * 0.05,
                                 fontWeight: FontWeight.bold,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
-                            SizedBox(height: 2),
                             Text(
-                              "Welcome To Delivery",
+                              "Manage Deliveries",
                               style: TextStyle(
                                 color: Colors.black,
-                                fontSize: 12,
+                                fontSize: screenWidth * 0.035,
                                 fontWeight: FontWeight.bold,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -74,9 +166,11 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.notifications),
-                      color: Colors.blue,
-                      iconSize: 24,
+                      icon: Icon(
+                        Icons.notifications,
+                        color: Colors.blue,
+                        size: screenWidth * 0.07,
+                      ),
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -86,22 +180,20 @@ class _DeliveryPageState extends State<DeliveryPage> {
                         );
                       },
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: IconButton(
-                        icon: const Icon(Icons.settings),
+                    IconButton(
+                      icon: Icon(
+                        Icons.settings,
                         color: Colors.blue,
-                        iconSize: 24,
-                        onPressed: () {
-                          // From InventoryPage
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SettingsPage(),
-                            ),
-                          );
-                        },
+                        size: screenWidth * 0.07,
                       ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SettingsPage(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -109,63 +201,167 @@ class _DeliveryPageState extends State<DeliveryPage> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: screenWidth * 0.03),
 
+          // ===== Filter + Select Row =====
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Left: Date Filter
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _pickDateTime,
+                      icon: const Icon(Icons.calendar_today),
+                      label: Text(
+                        selectedDateTime == null
+                            ? "Select Date"
+                            : "${selectedDateTime!.year}-${selectedDateTime!.month.toString().padLeft(2, '0')}-${selectedDateTime!.day.toString().padLeft(2, '0')} "
+                                  "${selectedDateTime!.hour.toString().padLeft(2, '0')}:${selectedDateTime!.minute.toString().padLeft(2, '0')}",
+                      ),
+                    ),
+                    if (selectedDateTime != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.red),
+                        onPressed: () {
+                          setState(() {
+                            selectedDateTime = null;
+                          });
+                        },
+                      ),
+                  ],
+                ),
+
+                // Right: Buttons (Select / Delete / Cancel)
+                Row(
+                  children: [
+                    if (isSelectionMode) ...[
+                      ElevatedButton.icon(
+                        onPressed: selectedDeliveries.isEmpty
+                            ? null
+                            : _deleteSelected,
+                        icon: const Icon(Icons.delete),
+                        label: const Text("Delete"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            isSelectionMode = false;
+                            selectedDeliveries.clear();
+                          });
+                        },
+                        icon: const Icon(Icons.close),
+                        label: const Text("Cancel"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey,
+                        ),
+                      ),
+                    ] else
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            isSelectionMode = true;
+                            selectedDeliveries.clear();
+                          });
+                        },
+                        child: const Text("Select"),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(height: screenWidth * 0.03),
+
+          // ===== Delivery List =====
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ListView.builder(
-                itemCount: deliveries.length,
-                itemBuilder: (context, index) {
-                  final delivery = deliveries[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          // Left side: Delivery info
-                          Expanded(
-                            child: Column(
+              child: filteredDeliveries.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "No deliveries found for this date",
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredDeliveries.length,
+                      itemBuilder: (context, index) {
+                        final delivery = filteredDeliveries[index];
+                        final isSelected = selectedDeliveries.contains(
+                          delivery["id"],
+                        );
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: ListTile(
+                            leading: isSelectionMode
+                                ? Checkbox(
+                                    value: isSelected,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        if (val == true) {
+                                          selectedDeliveries.add(
+                                            delivery["id"],
+                                          );
+                                        } else {
+                                          selectedDeliveries.remove(
+                                            delivery["id"],
+                                          );
+                                        }
+                                      });
+                                    },
+                                  )
+                                : null,
+                            title: Text(
+                              delivery["id"],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Text("Customer: ${delivery['customer']}"),
                                 Text(
-                                  delivery["id"],
+                                  "Status: ${delivery['status']}",
                                   style: const TextStyle(
+                                    color: Colors.black,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Text("Customer: ${delivery['customer']}"),
-                                Text("Status: ${delivery['status']}"),
+                                Text(
+                                  "Date: ${delivery['date'].year}-${delivery['date'].month.toString().padLeft(2, '0')}-${delivery['date'].day.toString().padLeft(2, '0')} "
+                                  "${delivery['date'].hour.toString().padLeft(2, '0')}:${delivery['date'].minute.toString().padLeft(2, '0')}",
+                                ),
                               ],
                             ),
+                            trailing: !isSelectionMode
+                                ? ElevatedButton(
+                                    onPressed: () =>
+                                        _showDeliveryDetails(delivery),
+                                    child: const Text("View"),
+                                  )
+                                : null,
                           ),
-
-                          // Right side: Action button
-                          ElevatedButton(
-                            onPressed: () {
-                              print("Manage ${delivery['id']}");
-                            },
-                            child: const Text("Manage"),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ),
 
           // ===== Bottom Navigation =====
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.05,
+              vertical: screenWidth * 0.03,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border(top: BorderSide(color: Colors.grey.shade300)),
@@ -173,75 +369,64 @@ class _DeliveryPageState extends State<DeliveryPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Inventory
                 Expanded(
                   child: InkWell(
                     onTap: () {
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const InventoryPage(),
+                          builder: (_) => const InventoryPage(),
                         ),
                       );
                     },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.inventory, size: 30, color: Colors.blue),
-                        SizedBox(height: 6),
-                        Text(
-                          "Inventory",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Sales
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SalesPage(),
-                        ),
-                      );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.bar_chart, size: 30, color: Colors.green),
-                        SizedBox(height: 6),
-                        Text(
-                          "Sales",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Delivery (active)
-                Expanded(
-                  child: InkWell(
-                    onTap: () {}, // stay here since it's active
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
+                          Icons.inventory,
+                          size: screenWidth * 0.08,
+                          color: Colors.blue,
+                        ),
+                        SizedBox(height: screenWidth * 0.015),
+                        const Text("Inventory"),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SalesPage()),
+                      );
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.bar_chart,
+                          size: screenWidth * 0.08,
+                          color: Colors.green,
+                        ),
+                        SizedBox(height: screenWidth * 0.015),
+                        const Text("Sales"),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {},
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
                           Icons.local_shipping,
-                          size: 30,
+                          size: screenWidth * 0.08,
                           color: Colors.orange,
                         ),
-                        const SizedBox(height: 6),
+                        SizedBox(height: screenWidth * 0.015),
                         Container(
                           decoration: const BoxDecoration(
                             border: Border(
@@ -251,13 +436,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                               ),
                             ),
                           ),
-                          child: const Text(
-                            "Delivery",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
+                          child: const Text("Delivery"),
                         ),
                       ],
                     ),
@@ -265,6 +444,38 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeliveryDetails(Map<String, dynamic> delivery) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Delivery Details (${delivery['id']})"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Customer: ${delivery['customer']}"),
+            Text("Location: ${delivery['location']}"),
+            Text("Contact: ${delivery['contact']}"),
+            Text("Product: ${delivery['product']}"),
+            Text(
+              "Status: ${delivery['status']}",
+              style: TextStyle(
+                color: _getStatusColor(delivery['status']),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
           ),
         ],
       ),

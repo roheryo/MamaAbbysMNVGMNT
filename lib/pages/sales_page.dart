@@ -161,7 +161,7 @@ class _SalesPageState extends State<SalesPage> {
                             ),
                             SizedBox(height: 2),
                             Text(
-                              "Welcome To Sales",
+                              "Manage Sales",
                               style: TextStyle(
                                 color: Colors.black,
                                 fontSize: 12,

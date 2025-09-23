@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'settings_page.dart';
 
 class EditpricesPage extends StatefulWidget {
   const EditpricesPage({super.key});

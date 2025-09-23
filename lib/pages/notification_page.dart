@@ -27,7 +27,7 @@ class _NotificationPage extends State<NotificationPage> {
                   },
                   child: const Icon(
                     Icons.arrow_back,
-                    color: Colors.black,
+                    color: Colors.blue,
                     size: 28,
                   ),
                 ),
@@ -35,7 +35,7 @@ class _NotificationPage extends State<NotificationPage> {
                 const Text(
                   "Notifications",
                   style: TextStyle(
-                    color: Colors.blue,
+                    color: Colors.black,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
