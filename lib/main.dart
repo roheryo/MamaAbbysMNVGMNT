@@ -16,7 +16,7 @@ Future<void> main() async {
     FlutterError.presentError(details);
     // Also print to console to help diagnose white-screen issues
     // ignore: avoid_print
-    print('FlutterError: ' + details.exceptionAsString());
+    print('FlutterError: ${details.exceptionAsString()}');
   };
 
   try {
@@ -24,7 +24,7 @@ Future<void> main() async {
     runApp(const MyApp());
   } catch (e, st) {
     // ignore: avoid_print
-    print('Startup error: ' + e.toString());
+    print('Startup error: $e');
     // ignore: avoid_print
     print(st);
     runApp(ErrorApp(message: e.toString()));
