@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/pages/login_page.dart';
+import 'package:flutter_applicationtest/database_helper.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:snippet_coder_utils/FormHelper.dart';
-import 'package:flutter_applicationtest/services/api_service.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -16,28 +15,11 @@ class RegisterPageState extends State<RegisterPage> {
   bool isAPIcallProcess = false;
   bool hidePassword = true;
   bool isRegisterHovering = false;
+  bool isHovering = false;
   GlobalKey<FormState> globalFormKey = GlobalKey<FormState>();
   String? username;
   String? email;
   String? password;
-  bool isHovering = false;
-
-  late final ApiService api;
-
-  @override
-  void initState() {
-    super.initState();
-    api = ApiService(baseUrl: _getBaseUrl());
-  }
-
-  String _getBaseUrl() {
-    if (kIsWeb) return 'http://localhost:3000';
-    try {
-      // If you still need mobile later:
-      // if (Platform.isAndroid) return 'http://10.0.2.2:3000';
-    } catch (_) {}
-    return 'http://localhost:3000';
-  }
 
   bool validateAndSave() {
     final form = globalFormKey.currentState;
@@ -50,22 +32,40 @@ class RegisterPageState extends State<RegisterPage> {
 
   Future<void> _submit() async {
     if (!validateAndSave()) return;
+
     setState(() => isAPIcallProcess = true);
+
     try {
-      await api.register(username!, email!, password!);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Registered successfully')));
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
-      );
+      // Check for existing username or email
+      if (await DatabaseHelper().checkUserExists(username: username)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Username already exists')),
+        );
+      } else if (await DatabaseHelper().checkUserExists(email: email)) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Email already exists')));
+      } else {
+        // Save user to database
+        await DatabaseHelper().insertUser(
+          username: username!,
+          email: email!,
+          password: password!,
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registered successfully')),
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+        );
+      }
     } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Register failed: $e')));
+      ).showSnackBar(SnackBar(content: Text('Registration failed: $e')));
     } finally {
       if (mounted) setState(() => isAPIcallProcess = false);
     }
@@ -82,10 +82,7 @@ class RegisterPageState extends State<RegisterPage> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF87CEEB), // Sky Blue
-                Color(0xFF283B71), // Dark Blue
-              ],
+              colors: [Color(0xFF87CEEB), Color(0xFF283B71)],
             ),
           ),
           child: ModalProgressHUD(
@@ -100,6 +97,7 @@ class RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _registerUI(BuildContext context) {
+    // Keep your original UI exactly as it is
     return SingleChildScrollView(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -211,18 +209,16 @@ class RegisterPageState extends State<RegisterPage> {
                       width: double.infinity,
                       child: FormHelper.submitButton(
                         "Register",
-                        () {
-                          _submit();
-                        },
+                        _submit,
                         btnColor: isRegisterHovering
                             ? Colors.blue
-                            : Colors.white, // background
+                            : Colors.white,
                         borderColor: isRegisterHovering
                             ? Colors.blue
-                            : Colors.white, // border
+                            : Colors.white,
                         txtColor: isRegisterHovering
                             ? Colors.white
-                            : Colors.blue, // text
+                            : Colors.blue,
                         borderRadius: 10,
                       ),
                     ),

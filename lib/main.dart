@@ -7,7 +7,7 @@ import 'package:flutter_applicationtest/pages/notification_page.dart';
 import 'package:flutter_applicationtest/pages/sales_page.dart';
 import 'package:flutter_applicationtest/pages/settings_page.dart';
 import 'pages/register_page.dart';
-import 'services/database.dart';
+import 'database_helper.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +20,7 @@ Future<void> main() async {
   };
 
   try {
-    await DatabaseService.instance.init();
+    await DatabaseHelper().database;
     runApp(const MyApp());
   } catch (e, st) {
     // ignore: avoid_print

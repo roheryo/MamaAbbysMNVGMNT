@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_applicationtest/database_helper.dart';
 import 'package:flutter_applicationtest/pages/inventory_page.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:snippet_coder_utils/FormHelper.dart';
@@ -27,21 +28,48 @@ class LoginPageState extends State<LoginPage> {
     return false;
   }
 
+  Future<void> _login() async {
+    if (!validateAndSave()) return;
+
+    setState(() => isAPIcallProcess = true);
+
+    try {
+      var user = await DatabaseHelper().getUser(username!, password!);
+
+      setState(() => isAPIcallProcess = false);
+
+      if (user != null) {
+        // Login successful -> navigate to InventoryPage
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const InventoryPage()),
+        );
+      } else {
+        // Invalid credentials
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Invalid username or password")),
+        );
+      }
+    } catch (e) {
+      setState(() => isAPIcallProcess = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Login failed: $e")));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
         body: Container(
-          width: double.infinity, //
-          height: double.infinity, //
+          width: double.infinity,
+          height: double.infinity,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF87CEEB), // Sky Blue
-                Color(0xFF283B71), // Dark Blue
-              ],
+              colors: [Color(0xFF87CEEB), Color(0xFF283B71)],
             ),
           ),
           child: ModalProgressHUD(
@@ -102,17 +130,10 @@ class LoginPageState extends State<LoginPage> {
           ),
           FormHelper.inputFieldWidget(
             context,
-            "username", // key
-            "Username", // label
-            (val) {
-              if (val.isEmpty) {
-                return "Username can't be empty";
-              }
-              return null;
-            },
-            (val) {
-              username = val;
-            },
+            "username",
+            "Username",
+            (val) => val.isEmpty ? "Username can't be empty" : null,
+            (val) => username = val,
             prefixIcon: const Icon(Icons.person, color: Colors.white),
             borderFocusColor: Colors.white,
             borderColor: Colors.white,
@@ -121,20 +142,12 @@ class LoginPageState extends State<LoginPage> {
             hintColor: Colors.white.withOpacity(0.7),
           ),
           const SizedBox(height: 10),
-
           FormHelper.inputFieldWidget(
             context,
-            "password", // key
-            "Password", // label/hint
-            (val) {
-              if (val.isEmpty) {
-                return "Password can't be empty";
-              }
-              return null;
-            },
-            (val) {
-              password = val;
-            },
+            "password",
+            "Password",
+            (val) => val.isEmpty ? "Password can't be empty" : null,
+            (val) => password = val,
             prefixIcon: const Icon(Icons.lock, color: Colors.white),
             borderFocusColor: Colors.white,
             borderColor: Colors.white,
@@ -161,17 +174,7 @@ class LoginPageState extends State<LoginPage> {
               width: double.infinity,
               child: FormHelper.submitButton(
                 "Login",
-                () {
-                  if (validateAndSave()) {
-                    print("Logging in with $username and $password");
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const InventoryPage(),
-                      ),
-                    );
-                  }
-                },
+                _login,
                 btnColor: Colors.white,
                 borderColor: Colors.white,
                 txtColor: Colors.blue,
@@ -205,16 +208,8 @@ class LoginPageState extends State<LoginPage> {
               children: [
                 MouseRegion(
                   cursor: SystemMouseCursors.click,
-                  onEnter: (_) {
-                    setState(() {
-                      isHovering = true;
-                    });
-                  },
-                  onExit: (_) {
-                    setState(() {
-                      isHovering = false;
-                    });
-                  },
+                  onEnter: (_) => setState(() => isHovering = true),
+                  onExit: (_) => setState(() => isHovering = false),
                   child: GestureDetector(
                     onTap: () {
                       Navigator.pushNamed(context, '/register');
