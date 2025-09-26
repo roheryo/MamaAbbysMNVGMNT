@@ -31,6 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
 
+  image_picker: ^1.0.4
   intl: ^0.20.2
   api_cache_manager: ^1.0.2
   snippet_coder_utils: ^1.0.9

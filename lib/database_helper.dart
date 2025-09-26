@@ -19,17 +19,14 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), "app.db");
     return await openDatabase(
       path,
-      version: 2,
+      version: 4,
       onCreate: _onCreate,
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute('ALTER TABLE users ADD COLUMN email TEXT');
-        }
-      },
+      onUpgrade: _onUpgrade,
     );
   }
 
   FutureOr<void> _onCreate(Database db, int version) async {
+    // Users table
     await db.execute('''
       CREATE TABLE users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,15 +40,37 @@ class DatabaseHelper {
     await db.insert('users', {
       'username': 'admin',
       'email': 'admin@example.com',
-      'password': '1234', // store hashed passwords in real apps
+      'password': '1234',
     });
+
+    // Products table
+    await db.execute('''
+      CREATE TABLE products(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        productName TEXT NOT NULL,
+        category TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        unitPrice REAL NOT NULL,
+        imagePath TEXT,
+        createdAt TEXT NOT NULL
+      )
+    ''');
   }
 
-  // Get user by username and password
-  Future<Map<String, dynamic>?> getUser(
-    String username,
-    String password,
-  ) async {
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Upgrade logic: only add missing columns/tables
+    if (oldVersion < 4) {
+      // Add imagePath column if not exists
+      var columns = await db.rawQuery("PRAGMA table_info(products)");
+      bool hasImagePath = columns.any((col) => col['name'] == 'imagePath');
+      if (!hasImagePath) {
+        await db.execute('ALTER TABLE products ADD COLUMN imagePath TEXT');
+      }
+    }
+  }
+
+  // ===================== Users Methods =====================
+  Future<Map<String, dynamic>?> getUser(String username, String password) async {
     final db = await database;
     var res = await db.query(
       'users',
@@ -61,7 +80,6 @@ class DatabaseHelper {
     return res.isNotEmpty ? res.first : null;
   }
 
-  // Check if username or email exists
   Future<bool> checkUserExists({String? username, String? email}) async {
     final db = await database;
     String where = '';
@@ -77,17 +95,33 @@ class DatabaseHelper {
     return res.isNotEmpty;
   }
 
-  // Insert a new user
-  Future<int> insertUser({
-    required String username,
-    required String email,
-    required String password,
-  }) async {
+  Future<int> insertUser({required String username, required String email, required String password}) async {
     final db = await database;
     return await db.insert('users', {
       'username': username,
       'email': email,
       'password': password,
     });
+  }
+
+  // ===================== Products Methods =====================
+  Future<int> insertProduct(Map<String, dynamic> product) async {
+    final db = await database;
+    return await db.insert('products', product);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchProducts() async {
+    final db = await database;
+    return await db.query('products', orderBy: "createdAt DESC");
+  }
+
+  Future<int> updateProduct(int id, Map<String, dynamic> product) async {
+    final db = await database;
+    return await db.update('products', product, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteProduct(int id) async {
+    final db = await database;
+    return await db.delete('products', where: 'id = ?', whereArgs: [id]);
   }
 }

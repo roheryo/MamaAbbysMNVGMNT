@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/pages/add_page.dart';
 import 'package:flutter_applicationtest/pages/notification_page.dart';
-import 'sales_page.dart';
-import 'delivery_page.dart';
-import 'settings_page.dart';
+import 'package:flutter_applicationtest/pages/sales_page.dart';
+import 'package:flutter_applicationtest/pages/delivery_page.dart';
+import 'package:flutter_applicationtest/pages/settings_page.dart';
+import 'package:flutter_applicationtest/database_helper.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key});
@@ -19,16 +20,55 @@ class _InventoryPageState extends State<InventoryPage> {
 
   final List<String> categories = [
     'All',
-    'TJ Hotdog',
-    'Epoys Hotdog',
-    'Van Hotdog',
+    'Pork',
+    'Virginia Products',
+    'Purefoods',
+    'Big Shot Products',
+    'Chicken',
+    'Beefies Products',
+    'Others',
   ];
 
-  final List<Map<String, dynamic>> products = [
-    {'name': 'TJ Hotdog', 'stock': 10, 'price': 150},
-    {'name': 'Chicken Nuggets', 'stock': 5, 'price': 250},
-    {'name': '1kls Chicken Wings', 'stock': 20, 'price': 100},
-  ];
+  List<Map<String, dynamic>> allProducts = []; // master list
+  List<Map<String, dynamic>> products = []; // filtered/display list
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    final db = DatabaseHelper();
+    final data = await db.fetchProducts();
+    setState(() {
+      allProducts = data;
+      products = List.from(allProducts); // display copy
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    if (selectedProducts.isEmpty) return;
+
+    final db = DatabaseHelper();
+
+    // Collect IDs to delete
+    List<int> idsToDelete = selectedProducts
+        .map((i) => products[i]['id'] as int)
+        .toList();
+
+    for (var id in idsToDelete) {
+      await db.deleteProduct(id);
+    }
+
+    // Reload products after deletion
+    await _loadProducts();
+
+    setState(() {
+      selectedProducts.clear();
+      isSelectionMode = false;
+    });
+  }
 
   Widget _buildNavItem({
     required IconData icon,
@@ -71,6 +111,31 @@ class _InventoryPageState extends State<InventoryPage> {
         ),
       ),
     );
+  }
+
+  void _filterProducts(String value) {
+    setState(() {
+      products = allProducts.where((p) {
+        final nameMatch = p['productName']
+            .toString()
+            .toLowerCase()
+            .contains(value.toLowerCase());
+        final categoryMatch = selectedCategory == 'All' ||
+            p['category'].toString() == selectedCategory;
+        return nameMatch && categoryMatch;
+      }).toList();
+    });
+  }
+
+  void _filterByCategory(String? category) {
+    if (category == null) return;
+    setState(() {
+      selectedCategory = category;
+      products = allProducts.where((p) {
+        return selectedCategory == 'All' ||
+            p['category'].toString() == selectedCategory;
+      }).toList();
+    });
   }
 
   @override
@@ -182,9 +247,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   borderSide: BorderSide.none,
                 ),
               ),
-              onChanged: (value) {
-                print("Search input: $value");
-              },
+              onChanged: _filterProducts,
             ),
           ),
 
@@ -209,14 +272,7 @@ class _InventoryPageState extends State<InventoryPage> {
                       child: Text(category),
                     );
                   }).toList(),
-                  onChanged: (String? newValue) {
-                    if (newValue != null) {
-                      setState(() {
-                        selectedCategory = newValue;
-                        print("Selected Category: $selectedCategory");
-                      });
-                    }
-                  },
+                  onChanged: _filterByCategory,
                 ),
               ],
             ),
@@ -229,19 +285,17 @@ class _InventoryPageState extends State<InventoryPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                // Add button on the left
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
+                  onPressed: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const AddPage()),
                     );
+                    _loadProducts(); // refresh after coming back
                   },
                   child: const Text("Add"),
                 ),
-
-                const Spacer(), // Push next buttons to the right
-                // Select / Cancel button
+                const Spacer(),
                 ElevatedButton(
                   onPressed: () {
                     setState(() {
@@ -251,27 +305,13 @@ class _InventoryPageState extends State<InventoryPage> {
                   },
                   child: Text(isSelectionMode ? "Cancel" : "Select"),
                 ),
-
                 const SizedBox(width: 8),
-
-                // Delete button (only visible in selection mode with items selected)
                 if (isSelectionMode && selectedProducts.isNotEmpty)
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                     ),
-                    onPressed: () {
-                      setState(() {
-                        selectedProducts.toList().sort(
-                          (b, a) => a.compareTo(b),
-                        );
-                        for (var i in selectedProducts) {
-                          products.removeAt(i);
-                        }
-                        selectedProducts.clear();
-                        isSelectionMode = false;
-                      });
-                    },
+                    onPressed: _deleteSelected,
                     child: const Text("Delete"),
                   ),
               ],
@@ -284,79 +324,86 @@ class _InventoryPageState extends State<InventoryPage> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ListView.builder(
-                itemCount: products.length,
-                itemBuilder: (context, index) {
-                  final product = products[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          if (isSelectionMode)
-                            Checkbox(
-                              value: selectedProducts.contains(index),
-                              onChanged: (value) {
-                                setState(() {
-                                  if (value == true) {
-                                    selectedProducts.add(index);
-                                  } else {
-                                    selectedProducts.remove(index);
-                                  }
-                                });
-                              },
-                            ),
-                          // ===== Move image to the left =====
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade500),
-                            ),
-                            child: const Center(
-                              child: Icon(Icons.image, color: Colors.grey),
-                            ),
+              child: products.isEmpty
+                  ? const Center(child: Text("No products found."))
+                  : ListView.builder(
+                      itemCount: products.length,
+                      itemBuilder: (context, index) {
+                        final product = products[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
                               children: [
-                                Text(
-                                  product['name'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                if (isSelectionMode)
+                                  Checkbox(
+                                    value: selectedProducts.contains(index),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        if (value == true) {
+                                          selectedProducts.add(index);
+                                        } else {
+                                          selectedProducts.remove(index);
+                                        }
+                                      });
+                                    },
+                                  ),
+                                // ===== Product Image =====
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade300,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey.shade500),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.image, color: Colors.grey),
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  "In Stock: ${product['stock']} | Price: ${product['price']}",
-                                  style: const TextStyle(fontSize: 14),
+                                const SizedBox(width: 12),
+
+                                // ===== Product Details =====
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        product['productName'],
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        "Stock: ${product['quantity']} | Price: ₱${product['unitPrice']}",
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(width: 12),
+
+                                // ===== Sell Button =====
+                                ElevatedButton(
+                                  onPressed: () {
+                                    print("Sell ${product['productName']}");
+                                  },
+                                  child: const Text("Sell"),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          ElevatedButton(
-                            onPressed: () {
-                              print("Sell ${product['name']}");
-                            },
-                            child: const Text("Sell"),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ),
 
