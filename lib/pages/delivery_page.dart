@@ -52,7 +52,6 @@ class _DeliveryPageState extends State<DeliveryPage> {
   ];
 
   DateTime? selectedDateTime;
-
   bool isSelectionMode = false;
   Set<String> selectedDeliveries = {};
 
@@ -103,6 +102,125 @@ class _DeliveryPageState extends State<DeliveryPage> {
       selectedDeliveries.clear();
       isSelectionMode = false;
     });
+  }
+
+  void _showAddDeliveryDialog() {
+    final idController = TextEditingController();
+    final customerController = TextEditingController();
+    final locationController = TextEditingController();
+    final contactController = TextEditingController();
+    final productController = TextEditingController();
+    String status = 'Pending';
+    DateTime? deliveryDate;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Add New Delivery"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: idController,
+                decoration: const InputDecoration(labelText: "Delivery ID"),
+              ),
+              TextField(
+                controller: customerController,
+                decoration: const InputDecoration(labelText: "Customer"),
+              ),
+              TextField(
+                controller: locationController,
+                decoration: const InputDecoration(labelText: "Location"),
+              ),
+              TextField(
+                controller: contactController,
+                decoration: const InputDecoration(labelText: "Contact"),
+                keyboardType: TextInputType.phone,
+              ),
+              TextField(
+                controller: productController,
+                decoration: const InputDecoration(labelText: "Product"),
+              ),
+              DropdownButtonFormField<String>(
+                value: status,
+                decoration: const InputDecoration(labelText: "Status"),
+                items: ['Pending', 'On the way', 'Delivered', 'Overdue']
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) status = value;
+                },
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                  );
+                  if (pickedDate != null) {
+                    final pickedTime = await showTimePicker(
+                      context: context,
+                      initialTime: const TimeOfDay(hour: 12, minute: 0),
+                    );
+                    if (pickedTime != null) {
+                      deliveryDate = DateTime(
+                        pickedDate.year,
+                        pickedDate.month,
+                        pickedDate.day,
+                        pickedTime.hour,
+                        pickedTime.minute,
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.calendar_today),
+                label: const Text("Pick Delivery Date & Time"),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (idController.text.isEmpty ||
+                  customerController.text.isEmpty ||
+                  locationController.text.isEmpty ||
+                  contactController.text.isEmpty ||
+                  productController.text.isEmpty ||
+                  deliveryDate == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Please fill out all fields")),
+                );
+                return;
+              }
+
+              setState(() {
+                deliveries.add({
+                  "id": idController.text,
+                  "customer": customerController.text,
+                  "location": locationController.text,
+                  "contact": contactController.text,
+                  "product": productController.text,
+                  "status": status,
+                  "date": deliveryDate!,
+                });
+              });
+
+              Navigator.pop(context);
+            },
+            child: const Text("Add"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -166,32 +284,24 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 Row(
                   children: [
                     IconButton(
-                      icon: Icon(
-                        Icons.notifications,
-                        color: Colors.blue,
-                        size: screenWidth * 0.07,
-                      ),
+                      icon: Icon(Icons.notifications,
+                          color: Colors.blue, size: screenWidth * 0.07),
                       onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const NotificationPage(),
-                          ),
+                              builder: (_) => const NotificationPage()),
                         );
                       },
                     ),
                     IconButton(
-                      icon: Icon(
-                        Icons.settings,
-                        color: Colors.blue,
-                        size: screenWidth * 0.07,
-                      ),
+                      icon: Icon(Icons.settings,
+                          color: Colors.blue, size: screenWidth * 0.07),
                       onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const SettingsPage(),
-                          ),
+                              builder: (_) => const SettingsPage()),
                         );
                       },
                     ),
@@ -219,7 +329,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                         selectedDateTime == null
                             ? "Select Date"
                             : "${selectedDateTime!.year}-${selectedDateTime!.month.toString().padLeft(2, '0')}-${selectedDateTime!.day.toString().padLeft(2, '0')} "
-                                  "${selectedDateTime!.hour.toString().padLeft(2, '0')}:${selectedDateTime!.minute.toString().padLeft(2, '0')}",
+                                "${selectedDateTime!.hour.toString().padLeft(2, '0')}:${selectedDateTime!.minute.toString().padLeft(2, '0')}",
                       ),
                     ),
                     if (selectedDateTime != null)
@@ -234,53 +344,39 @@ class _DeliveryPageState extends State<DeliveryPage> {
                   ],
                 ),
 
-                // Right: Buttons (Select / Delete / Cancel)
+                // Right: Buttons (Select/Delete/Cancel)
                 Row(
                   children: [
                     if (isSelectionMode) ...[
-                      SizedBox(
-                        height: 36, // make smaller height
-                        child: ElevatedButton.icon(
-                          onPressed: selectedDeliveries.isEmpty
-                              ? null
-                              : _deleteSelected,
-                          icon: const Icon(Icons.delete, size: 16),
-                          label: const Text("Delete"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            minimumSize: const Size(
-                              80,
-                              36,
-                            ), // min width & height
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            textStyle: const TextStyle(fontSize: 12),
-                          ),
+                      ElevatedButton.icon(
+                        onPressed:
+                            selectedDeliveries.isEmpty ? null : _deleteSelected,
+                        icon: const Icon(Icons.delete, size: 16),
+                        label: const Text("Delete"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          minimumSize: const Size(80, 36),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          textStyle: const TextStyle(fontSize: 12),
                         ),
                       ),
                       const SizedBox(width: 6),
-                      SizedBox(
-                        height: 36,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              isSelectionMode = false;
-                              selectedDeliveries.clear();
-                            });
-                          },
-                          icon: const Icon(Icons.close, size: 16),
-                          label: const Text("Cancel"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey,
-                            minimumSize: const Size(80, 36),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            textStyle: const TextStyle(fontSize: 12),
-                          ),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            isSelectionMode = false;
+                            selectedDeliveries.clear();
+                          });
+                        },
+                        icon: const Icon(Icons.close, size: 16),
+                        label: const Text("Cancel"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey,
+                          minimumSize: const Size(80, 36),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          textStyle: const TextStyle(fontSize: 12),
                         ),
                       ),
                     ] else
@@ -291,57 +387,58 @@ class _DeliveryPageState extends State<DeliveryPage> {
                             selectedDeliveries.clear();
                           });
                         },
+                        child: const Text("Select"),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(80, 36),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          textStyle: const TextStyle(fontSize: 12),
                         ),
-                        child: const Text("Select"),
                       ),
                   ],
                 ),
               ],
             ),
           ),
-          SizedBox(height: screenWidth * 0.03),
 
-          // ===== Delivery List =====
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: filteredDeliveries.isEmpty
-                  ? const Center(
-                      child: Text(
-                        "No deliveries found for this date",
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
-                      ),
-                    )
-                  : ListView.builder(
+          SizedBox(height: screenWidth * 0.02),
+
+                                  // ===== Add Delivery Button =====
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: ElevatedButton.icon(
+                              onPressed: _showAddDeliveryDialog,
+                              icon: const Icon(Icons.add),
+                              label: const Text("Add Delivery"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blueAccent,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                  // ===== Delivery List =====
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8), // reduced top padding
                       itemCount: filteredDeliveries.length,
                       itemBuilder: (context, index) {
                         final delivery = filteredDeliveries[index];
-                        final isSelected = selectedDeliveries.contains(
-                          delivery["id"],
-                        );
+                        final isSelected = selectedDeliveries.contains(delivery["id"]);
                         return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          margin: const EdgeInsets.only(bottom: 6), // tighter spacing between cards
                           child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), // less vertical padding
                             leading: isSelectionMode
                                 ? Checkbox(
                                     value: isSelected,
                                     onChanged: (val) {
                                       setState(() {
                                         if (val == true) {
-                                          selectedDeliveries.add(
-                                            delivery["id"],
-                                          );
+                                          selectedDeliveries.add(delivery["id"]);
                                         } else {
-                                          selectedDeliveries.remove(
-                                            delivery["id"],
-                                          );
+                                          selectedDeliveries.remove(delivery["id"]);
                                         }
                                       });
                                     },
@@ -349,9 +446,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                                 : null,
                             title: Text(
                               delivery["id"],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,18 +467,22 @@ class _DeliveryPageState extends State<DeliveryPage> {
                             ),
                             trailing: !isSelectionMode
                                 ? ElevatedButton(
-                                    onPressed: () =>
-                                        _showDeliveryDetails(delivery),
+                                    onPressed: () => _showDeliveryDetails(delivery),
                                     child: const Text("View"),
+                                    style: ElevatedButton.styleFrom(
+                                      minimumSize: const Size(60, 30), // smaller button
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    ),
                                   )
                                 : null,
                           ),
                         );
                       },
                     ),
-            ),
-          ),
-          //  Bottom Navigation
+                  ),
+
+
+          // ===== Bottom Navigation =====
           Container(
             padding: EdgeInsets.symmetric(
               horizontal: screenWidth * 0.05,
@@ -409,16 +508,11 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.inventory,
-                          size: screenWidth * 0.08,
-                          color: Colors.blue,
-                        ),
+                        Icon(Icons.inventory,
+                            size: screenWidth * 0.08, color: Colors.blue),
                         SizedBox(height: screenWidth * 0.015),
-                        const Text(
-                          "Inventory",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                        const Text("Inventory",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -428,22 +522,19 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     onTap: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (_) => const SalesPage()),
+                        MaterialPageRoute(
+                          builder: (_) => const SalesPage(),
+                        ),
                       );
                     },
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.bar_chart,
-                          size: screenWidth * 0.08,
-                          color: Colors.green,
-                        ),
+                        Icon(Icons.bar_chart,
+                            size: screenWidth * 0.08, color: Colors.green),
                         SizedBox(height: screenWidth * 0.015),
-                        const Text(
-                          "Sales",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                        const Text("Sales",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -454,25 +545,18 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.local_shipping,
-                          size: screenWidth * 0.08,
-                          color: Colors.orange,
-                        ),
+                        Icon(Icons.local_shipping,
+                            size: screenWidth * 0.08, color: Colors.orange),
                         SizedBox(height: screenWidth * 0.015),
                         Container(
                           decoration: const BoxDecoration(
                             border: Border(
-                              bottom: BorderSide(
-                                color: Colors.orange,
-                                width: 2,
-                              ),
+                              bottom:
+                                  BorderSide(color: Colors.orange, width: 2),
                             ),
                           ),
-                          child: const Text(
-                            "Delivery",
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          child: const Text("Delivery",
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),

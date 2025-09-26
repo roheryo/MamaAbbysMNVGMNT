@@ -281,131 +281,127 @@ class _InventoryPageState extends State<InventoryPage> {
           const SizedBox(height: 8),
 
           // ===== Buttons Row =====
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                ElevatedButton(
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AddPage()),
-                    );
-                    _loadProducts(); // refresh after coming back
-                  },
-                  child: const Text("Add"),
-                ),
-                const Spacer(),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      isSelectionMode = !isSelectionMode;
-                      selectedProducts.clear();
-                    });
-                  },
-                  child: Text(isSelectionMode ? "Cancel" : "Select"),
-                ),
-                const SizedBox(width: 8),
-                if (isSelectionMode && selectedProducts.isNotEmpty)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                    ),
-                    onPressed: _deleteSelected,
-                    child: const Text("Delete"),
-                  ),
-              ],
-            ),
+Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 16),
+  child: Row(
+    children: [
+      ElevatedButton(
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddPage()),
+          );
+          _loadProducts(); // refresh after coming back
+        },
+        child: const Text("Add"),
+      ),
+      const Spacer(),
+      ElevatedButton(
+        onPressed: () {
+          setState(() {
+            isSelectionMode = !isSelectionMode;
+            selectedProducts.clear();
+          });
+        },
+        child: Text(isSelectionMode ? "Cancel" : "Select"),
+      ),
+      const SizedBox(width: 8),
+      if (isSelectionMode && selectedProducts.isNotEmpty)
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
           ),
+          onPressed: _deleteSelected,
+          child: const Text("Delete"),
+        ),
+    ],
+  ),
+),
 
-          const SizedBox(height: 8),
+// Removed SizedBox(height: 8) here
 
-          // ===== Products List =====
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: products.isEmpty
-                  ? const Center(child: Text("No products found."))
-                  : ListView.builder(
-                      itemCount: products.length,
-                      itemBuilder: (context, index) {
-                        final product = products[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                if (isSelectionMode)
-                                  Checkbox(
-                                    value: selectedProducts.contains(index),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        if (value == true) {
-                                          selectedProducts.add(index);
-                                        } else {
-                                          selectedProducts.remove(index);
-                                        }
-                                      });
-                                    },
-                                  ),
-                                // ===== Product Image =====
-                                Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade300,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.grey.shade500),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(Icons.image, color: Colors.grey),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-
-                                // ===== Product Details =====
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        product['productName'],
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        "Stock: ${product['quantity']} | Price: ₱${product['unitPrice']}",
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                const SizedBox(width: 12),
-
-                                // ===== Sell Button =====
-                                ElevatedButton(
-                                  onPressed: () {
-                                    print("Sell ${product['productName']}");
-                                  },
-                                  child: const Text("Sell"),
-                                ),
-                              ],
+// ===== Products List =====
+Expanded(
+  child: Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: products.isEmpty
+        ? const Center(child: Text("No products found."))
+        : ListView.builder(
+            padding: const EdgeInsets.fromLTRB(0, 4, 0, 8), // tighter top padding
+            itemCount: products.length,
+            itemBuilder: (context, index) {
+              final product = products[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 4), // tighter spacing
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      if (isSelectionMode)
+                        Checkbox(
+                          value: selectedProducts.contains(index),
+                          onChanged: (value) {
+                            setState(() {
+                              if (value == true) {
+                                selectedProducts.add(index);
+                              } else {
+                                selectedProducts.remove(index);
+                              }
+                            });
+                          },
+                        ),
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade500),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.image, color: Colors.grey),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              product['productName'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
+                            const SizedBox(height: 4), // slightly smaller spacing
+                            Text(
+                              "Stock: ${product['quantity']} | Price: ₱${product['unitPrice']}",
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () {
+                          print("Sell ${product['productName']}");
+                        },
+                        child: const Text("Sell"),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
+  ),
+),
+
 
           // ===== Bottom Navigation =====
           Container(
