@@ -98,10 +98,19 @@ class _AddPage extends State<AddPage> {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: _goBack,
-                  child: const Icon(Icons.arrow_back,
-                      color: Colors.black, size: 28),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const InventoryPage()),
+                    );
+                  },
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.black,
+                    size: 28,
+                  ),
                 ),
+
                 const SizedBox(width: 16),
                 const Text(
                   "Add Product",

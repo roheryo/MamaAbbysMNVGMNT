@@ -12,6 +12,8 @@ class DatabaseHelper {
   Future<Database> get database async {
     if (_db != null) return _db!;
     _db = await _initDB();
+    // Ensure 'quantity' exists in deliveries
+    await _ensureDeliveriesQuantityColumn(_db!);
     return _db!;
   }
 
@@ -19,7 +21,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), "app.db");
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -36,7 +38,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Optional test user
+    // Test admin
     await db.insert('users', {
       'username': 'admin',
       'email': 'admin@example.com',
@@ -55,17 +57,63 @@ class DatabaseHelper {
         createdAt TEXT NOT NULL
       )
     ''');
+
+    // Deliveries table with quantity
+    await db.execute('''
+      CREATE TABLE deliveries(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customerName TEXT NOT NULL,
+        customerContact TEXT NOT NULL,
+        location TEXT NOT NULL,
+        category TEXT NOT NULL,
+        productId INTEGER NOT NULL,
+        quantity INTEGER NOT NULL,
+        createdAt TEXT NOT NULL,
+        status TEXT DEFAULT 'Pending',
+        FOREIGN KEY(productId) REFERENCES products(id)
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Upgrade logic: only add missing columns/tables
     if (oldVersion < 4) {
-      // Add imagePath column if not exists
       var columns = await db.rawQuery("PRAGMA table_info(products)");
       bool hasImagePath = columns.any((col) => col['name'] == 'imagePath');
       if (!hasImagePath) {
         await db.execute('ALTER TABLE products ADD COLUMN imagePath TEXT');
       }
+    }
+
+    if (oldVersion < 5) {
+      // Ensure deliveries table exists
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS deliveries(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          customerName TEXT NOT NULL,
+          customerContact TEXT NOT NULL,
+          location TEXT NOT NULL,
+          category TEXT NOT NULL,
+          productId INTEGER NOT NULL,
+          createdAt TEXT NOT NULL,
+          quantity INTEGER,
+          status TEXT DEFAULT 'Pending',
+          FOREIGN KEY(productId) REFERENCES products(id)
+        )
+      ''');
+
+      // Ensure 'quantity' column exists
+      await _ensureDeliveriesQuantityColumn(db);
+    }
+  }
+
+  /// Checks if 'quantity' exists in deliveries, adds it if missing
+  Future<void> _ensureDeliveriesQuantityColumn(Database db) async {
+    var columns = await db.rawQuery("PRAGMA table_info(deliveries)");
+    bool hasQuantity = columns.any((col) => col['name'] == 'quantity');
+    if (!hasQuantity) {
+      await db.execute(
+        'ALTER TABLE deliveries ADD COLUMN quantity INTEGER DEFAULT 0'
+      );
     }
   }
 
@@ -95,7 +143,11 @@ class DatabaseHelper {
     return res.isNotEmpty;
   }
 
-  Future<int> insertUser({required String username, required String email, required String password}) async {
+  Future<int> insertUser({
+    required String username,
+    required String email,
+    required String password,
+  }) async {
     final db = await database;
     return await db.insert('users', {
       'username': username,
@@ -110,18 +162,50 @@ class DatabaseHelper {
     return await db.insert('products', product);
   }
 
-  Future<List<Map<String, dynamic>>> fetchProducts() async {
+  Future<List<Map<String, dynamic>>> fetchProducts({String? category}) async {
     final db = await database;
+    if (category != null) {
+      return await db.query(
+        'products',
+        where: 'category = ?',
+        whereArgs: [category],
+        orderBy: 'createdAt DESC',
+      );
+    }
     return await db.query('products', orderBy: "createdAt DESC");
   }
 
   Future<int> updateProduct(int id, Map<String, dynamic> product) async {
     final db = await database;
-    return await db.update('products', product, where: 'id = ?', whereArgs: [id]);
+    return await db.update('products', product,
+        where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> deleteProduct(int id) async {
     final db = await database;
     return await db.delete('products', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ===================== Deliveries Methods =====================
+  Future<int> insertDelivery(Map<String, dynamic> delivery) async {
+    final db = await database;
+    return await db.insert('deliveries', delivery);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchDeliveries() async {
+    final db = await database;
+    return await db.query('deliveries', orderBy: "createdAt DESC");
+  }
+
+  Future<int> updateDeliveryStatus(int id, String status) async {
+    final db = await database;
+    return await db.update('deliveries', {'status': status},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ===================== Debug Helper =====================
+  Future<void> printDbPath() async {
+    final path = join(await getDatabasesPath(), "app.db");
+    print("Database is stored here: $path");
   }
 }

@@ -20,7 +20,12 @@ Future<void> main() async {
   };
 
   try {
+    // ✅ Initialize the database
     await DatabaseHelper().database;
+
+    // ✅ Print the database path so you know where app.db is stored
+    await DatabaseHelper().printDbPath();
+
     runApp(const MyApp());
   } catch (e, st) {
     // ignore: avoid_print
@@ -34,6 +39,7 @@ Future<void> main() async {
 class ErrorApp extends StatelessWidget {
   const ErrorApp({super.key, required this.message});
   final String message;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
