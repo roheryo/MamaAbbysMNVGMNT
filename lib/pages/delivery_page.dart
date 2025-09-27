@@ -76,9 +76,14 @@ class _DeliveryPageState extends State<DeliveryPage> {
     }
   }
 
-  void _deleteSelected() {
+    void _deleteSelected() {
     setState(() {
+      // Make a mutable copy of deliveries
+      deliveries = List<Map<String, dynamic>>.from(deliveries);
+
+      // Now you can safely remove items
       deliveries.removeWhere((d) => selectedDeliveries.contains(d["id"]));
+
       selectedDeliveries.clear();
       isSelectionMode = false;
     });
