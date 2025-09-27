@@ -47,7 +47,6 @@ class _DeliveryPageState extends State<DeliveryPage> {
     });
   }
 
-  // ========== Date Filter: Only Date, No Time ==========
   Future<void> _pickDateTime() async {
     final pickedDate = await showDatePicker(
       context: context,
@@ -95,7 +94,6 @@ class _DeliveryPageState extends State<DeliveryPage> {
     Map<String, dynamic>? selectedProduct;
     DateTime? deliveryDate;
 
-    // If a filter date is selected, default delivery date to it
     deliveryDate = selectedDateTime != null
         ? DateTime(selectedDateTime!.year, selectedDateTime!.month, selectedDateTime!.day)
         : DateTime.now();
@@ -167,43 +165,40 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton.icon(
-                      onPressed: () async {
-                        // Pick Date
-                        final pickedDate = await showDatePicker(
-                          context: context,
-                          initialDate: deliveryDate ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
+                  onPressed: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: deliveryDate ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                    );
+
+                    if (pickedDate != null) {
+                      final pickedTime = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.fromDateTime(deliveryDate ?? DateTime.now()),
+                      );
+
+                      if (pickedTime != null) {
+                        deliveryDate = DateTime(
+                          pickedDate.year,
+                          pickedDate.month,
+                          pickedDate.day,
+                          pickedTime.hour,
+                          pickedTime.minute,
                         );
-
-                        if (pickedDate != null) {
-                          // Pick Time
-                          final pickedTime = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.fromDateTime(deliveryDate ?? DateTime.now()),
-                          );
-
-                          if (pickedTime != null) {
-                            deliveryDate = DateTime(
-                              pickedDate.year,
-                              pickedDate.month,
-                              pickedDate.day,
-                              pickedTime.hour,
-                              pickedTime.minute,
-                            );
-                            setState(() {}); // Update dialog button label if needed
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.calendar_today),
-                      label: Text(
-                        deliveryDate != null
-                            ? "${deliveryDate!.year}-${deliveryDate!.month.toString().padLeft(2, '0')}-${deliveryDate!.day.toString().padLeft(2, '0')} "
-                              "${deliveryDate!.hour.toString().padLeft(2, '0')}:${deliveryDate!.minute.toString().padLeft(2, '0')}"
-                            : "Pick Delivery Date & Time",
-                      ),
-                    ),
-
+                        setState(() {});
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text(
+                    deliveryDate != null
+                        ? "${deliveryDate!.year}-${deliveryDate!.month.toString().padLeft(2, '0')}-${deliveryDate!.day.toString().padLeft(2, '0')} "
+                          "${deliveryDate!.hour.toString().padLeft(2, '0')}:${deliveryDate!.minute.toString().padLeft(2, '0')}"
+                        : "Pick Delivery Date & Time",
+                  ),
+                ),
               ],
             ),
           ),
@@ -300,15 +295,27 @@ class _DeliveryPageState extends State<DeliveryPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
-    // Filter deliveries by date only
-    final filteredDeliveries = selectedDateTime == null
-        ? deliveries
-        : deliveries.where((delivery) {
+    // ========= Filter by date & sort by time (mutable list) =========
+    List<Map<String, dynamic>> filteredDeliveries;
+    if (selectedDateTime == null) {
+      filteredDeliveries = List.from(deliveries); // make mutable copy
+    } else {
+      filteredDeliveries = deliveries
+          .where((delivery) {
             final d = DateTime.parse(delivery["createdAt"]);
             return d.year == selectedDateTime!.year &&
                    d.month == selectedDateTime!.month &&
                    d.day == selectedDateTime!.day;
-          }).toList();
+          })
+          .toList(); // mutable
+    }
+
+    // Sort by delivery time (earliest first)
+    filteredDeliveries.sort((a, b) {
+      final dateA = DateTime.parse(a["createdAt"]);
+      final dateB = DateTime.parse(b["createdAt"]);
+      return dateA.compareTo(dateB);
+    });
 
     return Scaffold(
       body: Column(
