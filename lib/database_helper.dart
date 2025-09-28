@@ -12,7 +12,6 @@ class DatabaseHelper {
   Future<Database> get database async {
     if (_db != null) return _db!;
     _db = await _initDB();
-    // Ensure 'quantity' exists in deliveries
     await _ensureDeliveriesQuantityColumn(_db!);
     return _db!;
   }
@@ -28,7 +27,6 @@ class DatabaseHelper {
   }
 
   FutureOr<void> _onCreate(Database db, int version) async {
-    // Users table
     await db.execute('''
       CREATE TABLE users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,14 +36,12 @@ class DatabaseHelper {
       )
     ''');
 
-    // Test admin
     await db.insert('users', {
       'username': 'admin',
       'email': 'admin@example.com',
       'password': '1234',
     });
 
-    // Products table
     await db.execute('''
       CREATE TABLE products(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,7 +54,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Deliveries table with quantity
     await db.execute('''
       CREATE TABLE deliveries(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,7 +69,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Notifications table
     await db.execute('''
       CREATE TABLE notifications(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,13 +84,10 @@ class DatabaseHelper {
     if (oldVersion < 4) {
       var columns = await db.rawQuery("PRAGMA table_info(products)");
       bool hasImagePath = columns.any((col) => col['name'] == 'imagePath');
-      if (!hasImagePath) {
-        await db.execute('ALTER TABLE products ADD COLUMN imagePath TEXT');
-      }
+      if (!hasImagePath) await db.execute('ALTER TABLE products ADD COLUMN imagePath TEXT');
     }
 
     if (oldVersion < 5) {
-      // Ensure deliveries table exists
       await db.execute('''
         CREATE TABLE IF NOT EXISTS deliveries(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,13 +102,10 @@ class DatabaseHelper {
           FOREIGN KEY(productId) REFERENCES products(id)
         )
       ''');
-
-      // Ensure 'quantity' column exists
       await _ensureDeliveriesQuantityColumn(db);
     }
 
     if (oldVersion < 6) {
-      // Ensure notifications table exists
       await db.execute('''
         CREATE TABLE IF NOT EXISTS notifications(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -130,13 +118,11 @@ class DatabaseHelper {
     }
   }
 
-  /// Checks if 'quantity' exists in deliveries, adds it if missing
   Future<void> _ensureDeliveriesQuantityColumn(Database db) async {
     var columns = await db.rawQuery("PRAGMA table_info(deliveries)");
     bool hasQuantity = columns.any((col) => col['name'] == 'quantity');
     if (!hasQuantity) {
-      await db.execute(
-          'ALTER TABLE deliveries ADD COLUMN quantity INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE deliveries ADD COLUMN quantity INTEGER DEFAULT 0');
     }
   }
 
@@ -200,8 +186,7 @@ class DatabaseHelper {
 
   Future<int> updateProduct(int id, Map<String, dynamic> product) async {
     final db = await database;
-    return await db.update('products', product,
-        where: 'id = ?', whereArgs: [id]);
+    return await db.update('products', product, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> deleteProduct(int id) async {
@@ -220,10 +205,10 @@ class DatabaseHelper {
     return await db.query('deliveries', orderBy: "createdAt DESC");
   }
 
-  Future<int> updateDeliveryStatus(int id, String status) async {
+  Future<int> updateDeliveryStatus(dynamic id, String status) async {
     final db = await database;
-    return await db.update('deliveries', {'status': status},
-        where: 'id = ?', whereArgs: [id]);
+    int deliveryId = id is int ? id : int.parse(id.toString());
+    return await db.update('deliveries', {'status': status}, where: 'id = ?', whereArgs: [deliveryId]);
   }
 
   Future<int> deleteDelivery(int id) async {
@@ -263,31 +248,21 @@ class DatabaseHelper {
   }
 
   // ===================== Overdue Deliveries Checker =====================
-  // Parses createdAt stored in different formats (String ISO, int ms/seconds, DateTime)
   DateTime? _parseDynamicDate(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
     if (value is int) {
-      // Distinguish seconds vs milliseconds roughly by magnitude
       try {
-        if (value > 1000000000000) {
-          // milliseconds
-          return DateTime.fromMillisecondsSinceEpoch(value);
-        } else if (value > 1000000000) {
-          // seconds -> convert to ms
-          return DateTime.fromMillisecondsSinceEpoch(value * 1000);
-        } else {
-          return DateTime.fromMillisecondsSinceEpoch(value);
-        }
+        if (value > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(value);
+        if (value > 1000000000) return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+        return DateTime.fromMillisecondsSinceEpoch(value);
       } catch (_) {
         return null;
       }
     }
     if (value is String) {
-      // Try ISO parse
       final dt = DateTime.tryParse(value);
       if (dt != null) return dt;
-      // Maybe it's a number string
       final num = int.tryParse(value);
       if (num != null) {
         if (num > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(num);
@@ -298,28 +273,19 @@ class DatabaseHelper {
     return null;
   }
 
-  /// Checks deliveries with status 'Pending' and creates a notification if overdue.
-  /// By default a delivery is considered overdue if it's older than 1 day.
   Future<void> checkOverdueDeliveries({Duration overdueAfter = const Duration(days: 1)}) async {
     final db = await database;
-    final deliveries = await db.query(
-      'deliveries',
-      where: "status = ?",
-      whereArgs: ["Pending"],
-    );
+    final deliveries = await db.query('deliveries', where: "status = ?", whereArgs: ["Pending"]);
 
     for (var d in deliveries) {
       final createdAt = _parseDynamicDate(d["createdAt"]);
       if (createdAt == null) continue;
 
       if (DateTime.now().isAfter(createdAt.add(overdueAfter))) {
+        await updateDeliveryStatus(d['id'], 'Overdue');
+
         final message = "Delivery for ${d['customerName']} is overdue!";
-        // Avoid duplicate notifications with the same message
-        final existing = await db.query(
-          "notifications",
-          where: "message = ?",
-          whereArgs: [message],
-        );
+        final existing = await db.query("notifications", where: "message = ?", whereArgs: [message]);
         if (existing.isEmpty) {
           await insertNotification(
             "Overdue Delivery",
