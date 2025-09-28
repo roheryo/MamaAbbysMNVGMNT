@@ -21,7 +21,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), "app.db");
     return await openDatabase(
       path,
-      version: 6, // ✅ bumped version so notifications table gets created
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -74,7 +74,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // ✅ Notifications table
+    // Notifications table
     await db.execute('''
       CREATE TABLE notifications(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,7 +117,7 @@ class DatabaseHelper {
     }
 
     if (oldVersion < 6) {
-      // ✅ Ensure notifications table exists
+      // Ensure notifications table exists
       await db.execute('''
         CREATE TABLE IF NOT EXISTS notifications(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -226,12 +226,10 @@ class DatabaseHelper {
         where: 'id = ?', whereArgs: [id]);
   }
 
-  //  Delete delivery
   Future<int> deleteDelivery(int id) async {
     final db = await database;
     return await db.delete('deliveries', where: 'id = ?', whereArgs: [id]);
   }
-
 
   // ===================== Notifications Methods =====================
   Future<int> insertNotification(String title, String message) async {
@@ -262,6 +260,74 @@ class DatabaseHelper {
     final db = await database;
     final res = await db.query("notifications", where: "isRead = 0", limit: 1);
     return res.isNotEmpty;
+  }
+
+  // ===================== Overdue Deliveries Checker =====================
+  // Parses createdAt stored in different formats (String ISO, int ms/seconds, DateTime)
+  DateTime? _parseDynamicDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is int) {
+      // Distinguish seconds vs milliseconds roughly by magnitude
+      try {
+        if (value > 1000000000000) {
+          // milliseconds
+          return DateTime.fromMillisecondsSinceEpoch(value);
+        } else if (value > 1000000000) {
+          // seconds -> convert to ms
+          return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+        } else {
+          return DateTime.fromMillisecondsSinceEpoch(value);
+        }
+      } catch (_) {
+        return null;
+      }
+    }
+    if (value is String) {
+      // Try ISO parse
+      final dt = DateTime.tryParse(value);
+      if (dt != null) return dt;
+      // Maybe it's a number string
+      final num = int.tryParse(value);
+      if (num != null) {
+        if (num > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(num);
+        if (num > 1000000000) return DateTime.fromMillisecondsSinceEpoch(num * 1000);
+        return DateTime.fromMillisecondsSinceEpoch(num);
+      }
+    }
+    return null;
+  }
+
+  /// Checks deliveries with status 'Pending' and creates a notification if overdue.
+  /// By default a delivery is considered overdue if it's older than 1 day.
+  Future<void> checkOverdueDeliveries({Duration overdueAfter = const Duration(days: 1)}) async {
+    final db = await database;
+    final deliveries = await db.query(
+      'deliveries',
+      where: "status = ?",
+      whereArgs: ["Pending"],
+    );
+
+    for (var d in deliveries) {
+      final createdAt = _parseDynamicDate(d["createdAt"]);
+      if (createdAt == null) continue;
+
+      if (DateTime.now().isAfter(createdAt.add(overdueAfter))) {
+        final message = "Delivery for ${d['customerName']} is overdue!";
+        // Avoid duplicate notifications with the same message
+        final existing = await db.query(
+          "notifications",
+          where: "message = ?",
+          whereArgs: [message],
+        );
+        if (existing.isEmpty) {
+          await insertNotification(
+            "Overdue Delivery",
+            "$message\nLocation: ${d['location']}\nProduct ID: ${d['productId']} | Qty: ${d['quantity']}",
+          );
+        }
+      }
+    }
   }
 
   // ===================== Debug Helper =====================

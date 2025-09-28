@@ -24,12 +24,14 @@ class _DeliveryPageState extends State<DeliveryPage> {
   @override
   void initState() {
     super.initState();
-    _loadDeliveries();
+    _refreshDeliveriesAndCheckOverdue();
     _loadCategoriesAndProducts();
   }
 
-  Future<void> _loadDeliveries() async {
-    deliveries = await DatabaseHelper().fetchDeliveries();
+  Future<void> _refreshDeliveriesAndCheckOverdue() async {
+    final db = DatabaseHelper();
+    await db.checkOverdueDeliveries();
+    deliveries = await db.fetchDeliveries();
     setState(() {});
   }
 
@@ -73,32 +75,22 @@ class _DeliveryPageState extends State<DeliveryPage> {
     }
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case "Pending":
-        return Colors.orange;
-      case "On the way":
-        return Colors.blue;
-      case "Delivered":
-        return Colors.green;
-      case "Overdue":
-        return Colors.red;
-      default:
-        return Colors.black;
-    }
-  }
-
-  // ✅ Updated delete method to also remove from SQLite
   Future<void> _deleteSelected() async {
     final db = DatabaseHelper();
     for (var id in selectedDeliveries) {
-      await db.deleteDelivery(id); // delete from database
+      await db.deleteDelivery(id);
     }
-    await _loadDeliveries(); // refresh list
+    await _refreshDeliveriesAndCheckOverdue();
     setState(() {
       selectedDeliveries.clear();
       isSelectionMode = false;
     });
+  }
+
+  Future<void> _markAsDone(int id) async {
+    final db = DatabaseHelper();
+    await db.updateDeliveryStatus(id, "Delivered");
+    await _refreshDeliveriesAndCheckOverdue();
   }
 
   void _showAddDeliveryDialog() {
@@ -115,8 +107,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
 
     void updateProductsByCategory(String? cat) {
       if (cat == null) return;
-      availableProducts =
-          allProducts.where((p) => p['category'] == cat).toList();
+      availableProducts = allProducts
+          .where((p) => p['category'] == cat)
+          .toList();
       selectedProduct = null;
       quantityController.text = '';
     }
@@ -125,156 +118,166 @@ class _DeliveryPageState extends State<DeliveryPage> {
 
     showDialog(
       context: context,
-      builder: (_) => StatefulBuilder(builder: (context, setState) {
-        return AlertDialog(
-          title: const Text("Add New Delivery"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: customerController,
-                  decoration: const InputDecoration(labelText: "Customer Name"),
-                ),
-                TextField(
-                  controller: contactController,
-                  decoration: const InputDecoration(labelText: "Contact Number"),
-                  keyboardType: TextInputType.phone,
-                ),
-                TextField(
-                  controller: locationController,
-                  decoration: const InputDecoration(labelText: "Location"),
-                ),
-                DropdownButtonFormField<String>(
-                  value: category,
-                  decoration:
-                      const InputDecoration(labelText: "Product Category"),
-                  items: categories
-                      .map((c) =>
-                          DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: (value) {
-                    category = value;
-                    updateProductsByCategory(category);
-                    setState(() {});
-                  },
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<Map<String, dynamic>>(
-                  value: selectedProduct,
-                  decoration: const InputDecoration(labelText: "Product"),
-                  items: availableProducts
-                      .map((p) => DropdownMenuItem(
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text("Add New Delivery"),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: customerController,
+                    decoration: const InputDecoration(
+                      labelText: "Customer Name",
+                    ),
+                  ),
+                  TextField(
+                    controller: contactController,
+                    decoration: const InputDecoration(
+                      labelText: "Contact Number",
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  TextField(
+                    controller: locationController,
+                    decoration: const InputDecoration(labelText: "Location"),
+                  ),
+                  DropdownButtonFormField<String>(
+                    value: category,
+                    decoration: const InputDecoration(
+                      labelText: "Product Category",
+                    ),
+                    items: categories
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (value) {
+                      category = value;
+                      updateProductsByCategory(category);
+                      setState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<Map<String, dynamic>>(
+                    value: selectedProduct,
+                    decoration: const InputDecoration(labelText: "Product"),
+                    items: availableProducts
+                        .map(
+                          (p) => DropdownMenuItem(
                             value: p,
                             child: Text(p['productName']),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    selectedProduct = value;
-                    quantityController.text = '';
-                    setState(() {});
-                  },
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: quantityController,
-                  decoration: const InputDecoration(labelText: "Quantity"),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final pickedDate = await showDatePicker(
-                      context: context,
-                      initialDate: deliveryDate ?? DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2030),
-                    );
-                    if (pickedDate != null) {
-                      final pickedTime = await showTimePicker(
-                        context: context,
-                        initialTime:
-                            TimeOfDay.fromDateTime(deliveryDate ?? DateTime.now()),
-                      );
-                      if (pickedTime != null) {
-                        deliveryDate = DateTime(
-                          pickedDate.year,
-                          pickedDate.month,
-                          pickedDate.day,
-                          pickedTime.hour,
-                          pickedTime.minute,
-                        );
-                        setState(() {});
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.calendar_today),
-                  label: Text(
-                    deliveryDate != null
-                        ? "${deliveryDate!.year}-${deliveryDate!.month.toString().padLeft(2, '0')}-${deliveryDate!.day.toString().padLeft(2, '0')} "
-                            "${deliveryDate!.hour.toString().padLeft(2, '0')}:${deliveryDate!.minute.toString().padLeft(2, '0')}"
-                        : "Pick Delivery Date & Time",
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      selectedProduct = value;
+                      quantityController.text = '';
+                      setState(() {});
+                    },
                   ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (customerController.text.isEmpty ||
-                    contactController.text.isEmpty ||
-                    locationController.text.isEmpty ||
-                    selectedProduct == null ||
-                    deliveryDate == null ||
-                    quantityController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Please fill all fields")),
-                  );
-                  return;
-                }
-
-                final enteredQty = int.tryParse(quantityController.text);
-                if (enteredQty == null || enteredQty <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Enter a valid quantity")),
-                  );
-                  return;
-                }
-
-                if (enteredQty > selectedProduct!['quantity']) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        "Available stock is ${selectedProduct!['quantity']}, cannot deliver $enteredQty",
-                      ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: quantityController,
+                    decoration: const InputDecoration(labelText: "Quantity"),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: deliveryDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (pickedDate != null) {
+                        final pickedTime = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.fromDateTime(
+                            deliveryDate ?? DateTime.now(),
+                          ),
+                        );
+                        if (pickedTime != null) {
+                          deliveryDate = DateTime(
+                            pickedDate.year,
+                            pickedDate.month,
+                            pickedDate.day,
+                            pickedTime.hour,
+                            pickedTime.minute,
+                          );
+                          setState(() {});
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.calendar_today),
+                    label: Text(
+                      deliveryDate != null
+                          ? "${deliveryDate!.year}-${deliveryDate!.month.toString().padLeft(2, '0')}-${deliveryDate!.day.toString().padLeft(2, '0')} "
+                            "${deliveryDate!.hour.toString().padLeft(2, '0')}:${deliveryDate!.minute.toString().padLeft(2, '0')}"
+                          : "Pick Delivery Date & Time",
                     ),
-                  );
-                  return;
-                }
-
-                await DatabaseHelper().insertDelivery({
-                  "customerName": customerController.text,
-                  "customerContact": contactController.text,
-                  "location": locationController.text,
-                  "category": category,
-                  "productId": selectedProduct!['id'],
-                  "quantity": enteredQty,
-                  "createdAt": deliveryDate!.toIso8601String(),
-                });
-
-                await _loadDeliveries();
-                Navigator.pop(context);
-              },
-              child: const Text("Add"),
+                  ),
+                ],
+              ),
             ),
-          ],
-        );
-      }),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (customerController.text.isEmpty ||
+                      contactController.text.isEmpty ||
+                      locationController.text.isEmpty ||
+                      selectedProduct == null ||
+                      deliveryDate == null ||
+                      quantityController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Please fill all fields")),
+                    );
+                    return;
+                  }
+
+                  final enteredQty = int.tryParse(quantityController.text);
+                  if (enteredQty == null || enteredQty <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Enter a valid quantity")),
+                    );
+                    return;
+                  }
+
+                  if (enteredQty > selectedProduct!['quantity']) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          "Available stock is ${selectedProduct!['quantity']}, cannot deliver $enteredQty",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  await DatabaseHelper().insertDelivery({
+                    "customerName": customerController.text,
+                    "customerContact": contactController.text,
+                    "location": locationController.text,
+                    "category": category,
+                    "productId": selectedProduct!['id'],
+                    "quantity": enteredQty,
+                    "createdAt": deliveryDate!.toIso8601String(),
+                    "status": "Pending",
+                  });
+
+                  await _refreshDeliveriesAndCheckOverdue();
+                  Navigator.pop(context);
+                },
+                child: const Text("Add"),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -299,8 +302,8 @@ class _DeliveryPageState extends State<DeliveryPage> {
             Text("Quantity: ${delivery['quantity'] ?? ''}"),
             Text(
               "Status: ${delivery['status'] ?? 'Pending'}",
-              style: TextStyle(
-                color: _getStatusColor(delivery['status'] ?? 'Pending'),
+              style: const TextStyle(
+                color: Colors.black,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -323,7 +326,6 @@ class _DeliveryPageState extends State<DeliveryPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
-    // Filter + sort deliveries
     List<Map<String, dynamic>> filteredDeliveries;
     if (selectedDateTime == null) {
       filteredDeliveries = List.from(deliveries);
@@ -337,6 +339,13 @@ class _DeliveryPageState extends State<DeliveryPage> {
     }
 
     filteredDeliveries.sort((a, b) {
+      if ((a["status"] ?? "") == "Delivered" &&
+          (b["status"] ?? "") != "Delivered") {
+        return 1;
+      } else if ((b["status"] ?? "") == "Delivered" &&
+          (a["status"] ?? "") != "Delivered") {
+        return -1;
+      }
       final dateA = DateTime.parse(a["createdAt"]);
       final dateB = DateTime.parse(b["createdAt"]);
       return dateA.compareTo(dateB);
@@ -500,12 +509,11 @@ class _DeliveryPageState extends State<DeliveryPage> {
               alignment: Alignment.centerLeft,
               child: ElevatedButton.icon(
                 onPressed: _showAddDeliveryDialog,
-                icon: const Icon(Icons.add, color: Colors.white), //  icon white too
+                icon: const Icon(Icons.add, color: Colors.white),
                 label: const Text("Add Delivery"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white, //  makes text white
-                  textStyle: const TextStyle(color: Colors.white), // extra safety
+                  foregroundColor: Colors.white,
                 ),
               ),
             ),
@@ -518,6 +526,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
               itemBuilder: (context, index) {
                 final delivery = filteredDeliveries[index];
                 final isSelected = selectedDeliveries.contains(delivery["id"]);
+                final isDelivered = (delivery["status"] ?? "") == "Delivered";
                 return Card(
                   child: ListTile(
                     leading: isSelectionMode
@@ -539,20 +548,54 @@ class _DeliveryPageState extends State<DeliveryPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text("Customer: ${delivery['customerName']}"),
-                        Text("Status: ${delivery['status'] ?? 'Pending'}",
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold)),
+                        Text(
+                          "Status: ${delivery['status'] ?? 'Pending'}",
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         Text(
                           "Date: ${DateTime.parse(delivery['createdAt']).toLocal()}",
                         ),
                       ],
                     ),
                     trailing: !isSelectionMode
-                        ? ElevatedButton(
-                            onPressed: () => _showDeliveryDetails(delivery),
-                            child: const Text("View"),
-                          )
-                        : null,
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => _showDeliveryDetails(delivery),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
+                                minimumSize: const Size(50, 30),
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                              ),
+                              child: const Text(
+                                "View",
+                                style: TextStyle(fontSize: 10),
+                              ),
+                            ),
+                            if (!isDelivered) const SizedBox(width: 4),
+                            if (!isDelivered)
+                              ElevatedButton(
+                                onPressed: () => _markAsDone(delivery["id"]),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.black,
+                                  minimumSize: const Size(50, 30),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                                ),
+                                child: const Text(
+                                  "Done",
+                                  style: TextStyle(fontSize: 10),
+                                ),
+                              ),
+                          ],
+                        )
+                      : null,
+
                   ),
                 );
               },
@@ -584,10 +627,15 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.inventory,
-                            size: screenWidth * 0.08, color: Colors.blue),
-                        const Text("Inventory",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Icon(
+                          Icons.inventory,
+                          size: screenWidth * 0.08,
+                          color: Colors.blue,
+                        ),
+                        const Text(
+                          "Inventory",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                   ),
@@ -597,18 +645,21 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     onTap: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const SalesPage(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const SalesPage()),
                       );
                     },
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.bar_chart,
-                            size: screenWidth * 0.08, color: Colors.green),
-                        const Text("Sales",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Icon(
+                          Icons.bar_chart,
+                          size: screenWidth * 0.08,
+                          color: Colors.green,
+                        ),
+                        const Text(
+                          "Sales",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                   ),
@@ -619,10 +670,15 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.local_shipping,
-                            size: screenWidth * 0.08, color: Colors.orange),
-                        const Text("Delivery",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Icon(
+                          Icons.local_shipping,
+                          size: screenWidth * 0.08,
+                          color: Colors.orange,
+                        ),
+                        const Text(
+                          "Delivery",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                   ),

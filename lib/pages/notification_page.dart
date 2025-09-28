@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // ✅ for date formatting
 import '../database_helper.dart';
 
 class NotificationPage extends StatefulWidget {
@@ -23,6 +24,17 @@ class _NotificationPage extends State<NotificationPage> {
     setState(() {});
     // Mark as read after loading
     await db.markAllNotificationsRead();
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return "Unknown date";
+    try {
+      final parsed = DateTime.tryParse(dateStr);
+      if (parsed == null) return "Invalid date";
+      return DateFormat("MMM d, yyyy - h:mm a").format(parsed.toLocal());
+    } catch (e) {
+      return "Invalid date";
+    }
   }
 
   @override
@@ -60,9 +72,9 @@ class _NotificationPage extends State<NotificationPage> {
                         margin: const EdgeInsets.all(8),
                         child: ListTile(
                           leading: const Icon(Icons.warning, color: Colors.red),
-                          title: Text(n["message"]),
+                          title: Text(n["message"] ?? "No message"),
                           subtitle: Text(
-                            DateTime.parse(n["createdAt"]).toLocal().toString(),
+                            _formatDate(n["createdAt"]),
                             style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ),
