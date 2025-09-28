@@ -55,9 +55,21 @@ class _DeliveryPageState extends State<DeliveryPage> {
       lastDate: DateTime(2030),
     );
     if (pickedDate != null) {
-      setState(() {
-        selectedDateTime = DateTime(pickedDate.year, pickedDate.month, pickedDate.day);
-      });
+      final pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(selectedDateTime ?? DateTime.now()),
+      );
+      if (pickedTime != null) {
+        setState(() {
+          selectedDateTime = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
     }
   }
 
@@ -76,14 +88,14 @@ class _DeliveryPageState extends State<DeliveryPage> {
     }
   }
 
-    void _deleteSelected() {
+  // ✅ Updated delete method to also remove from SQLite
+  Future<void> _deleteSelected() async {
+    final db = DatabaseHelper();
+    for (var id in selectedDeliveries) {
+      await db.deleteDelivery(id); // delete from database
+    }
+    await _loadDeliveries(); // refresh list
     setState(() {
-      // Make a mutable copy of deliveries
-      deliveries = List<Map<String, dynamic>>.from(deliveries);
-
-      // Now you can safely remove items
-      deliveries.removeWhere((d) => selectedDeliveries.contains(d["id"]));
-
       selectedDeliveries.clear();
       isSelectionMode = false;
     });
@@ -99,18 +111,17 @@ class _DeliveryPageState extends State<DeliveryPage> {
     Map<String, dynamic>? selectedProduct;
     DateTime? deliveryDate;
 
-    deliveryDate = selectedDateTime != null
-        ? DateTime(selectedDateTime!.year, selectedDateTime!.month, selectedDateTime!.day)
-        : DateTime.now();
+    deliveryDate = selectedDateTime ?? DateTime.now();
 
-    void _updateProductsByCategory(String? cat) {
+    void updateProductsByCategory(String? cat) {
       if (cat == null) return;
-      availableProducts = allProducts.where((p) => p['category'] == cat).toList();
+      availableProducts =
+          allProducts.where((p) => p['category'] == cat).toList();
       selectedProduct = null;
       quantityController.text = '';
     }
 
-    _updateProductsByCategory(category);
+    updateProductsByCategory(category);
 
     showDialog(
       context: context,
@@ -136,13 +147,15 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 ),
                 DropdownButtonFormField<String>(
                   value: category,
-                  decoration: const InputDecoration(labelText: "Product Category"),
+                  decoration:
+                      const InputDecoration(labelText: "Product Category"),
                   items: categories
-                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                      .map((c) =>
+                          DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
                   onChanged: (value) {
                     category = value;
-                    _updateProductsByCategory(category);
+                    updateProductsByCategory(category);
                     setState(() {});
                   },
                 ),
@@ -177,13 +190,12 @@ class _DeliveryPageState extends State<DeliveryPage> {
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2030),
                     );
-
                     if (pickedDate != null) {
                       final pickedTime = await showTimePicker(
                         context: context,
-                        initialTime: TimeOfDay.fromDateTime(deliveryDate ?? DateTime.now()),
+                        initialTime:
+                            TimeOfDay.fromDateTime(deliveryDate ?? DateTime.now()),
                       );
-
                       if (pickedTime != null) {
                         deliveryDate = DateTime(
                           pickedDate.year,
@@ -200,7 +212,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                   label: Text(
                     deliveryDate != null
                         ? "${deliveryDate!.year}-${deliveryDate!.month.toString().padLeft(2, '0')}-${deliveryDate!.day.toString().padLeft(2, '0')} "
-                          "${deliveryDate!.hour.toString().padLeft(2, '0')}:${deliveryDate!.minute.toString().padLeft(2, '0')}"
+                            "${deliveryDate!.hour.toString().padLeft(2, '0')}:${deliveryDate!.minute.toString().padLeft(2, '0')}"
                         : "Pick Delivery Date & Time",
                   ),
                 ),
@@ -209,50 +221,57 @@ class _DeliveryPageState extends State<DeliveryPage> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel")),
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
             ElevatedButton(
-                onPressed: () async {
-                  if (customerController.text.isEmpty ||
-                      contactController.text.isEmpty ||
-                      locationController.text.isEmpty ||
-                      selectedProduct == null ||
-                      deliveryDate == null ||
-                      quantityController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Please fill all fields")));
-                    return;
-                  }
+              onPressed: () async {
+                if (customerController.text.isEmpty ||
+                    contactController.text.isEmpty ||
+                    locationController.text.isEmpty ||
+                    selectedProduct == null ||
+                    deliveryDate == null ||
+                    quantityController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please fill all fields")),
+                  );
+                  return;
+                }
 
-                  final enteredQty = int.tryParse(quantityController.text);
-                  if (enteredQty == null || enteredQty <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Enter a valid quantity")));
-                    return;
-                  }
+                final enteredQty = int.tryParse(quantityController.text);
+                if (enteredQty == null || enteredQty <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Enter a valid quantity")),
+                  );
+                  return;
+                }
 
-                  if (enteredQty > selectedProduct!['quantity']) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(
-                            "Available stock is ${selectedProduct!['quantity']}, cannot deliver $enteredQty")));
-                    return;
-                  }
+                if (enteredQty > selectedProduct!['quantity']) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        "Available stock is ${selectedProduct!['quantity']}, cannot deliver $enteredQty",
+                      ),
+                    ),
+                  );
+                  return;
+                }
 
-                  // Insert into database
-                  await DatabaseHelper().insertDelivery({
-                    "customerName": customerController.text,
-                    "customerContact": contactController.text,
-                    "location": locationController.text,
-                    "category": category,
-                    "productId": selectedProduct!['id'],
-                    "quantity": enteredQty,
-                    "createdAt": deliveryDate!.toIso8601String(),
-                  });
+                await DatabaseHelper().insertDelivery({
+                  "customerName": customerController.text,
+                  "customerContact": contactController.text,
+                  "location": locationController.text,
+                  "category": category,
+                  "productId": selectedProduct!['id'],
+                  "quantity": enteredQty,
+                  "createdAt": deliveryDate!.toIso8601String(),
+                });
 
-                  await _loadDeliveries();
-                  Navigator.pop(context);
-                },
-                child: const Text("Add")),
+                await _loadDeliveries();
+                Navigator.pop(context);
+              },
+              child: const Text("Add"),
+            ),
           ],
         );
       }),
@@ -261,8 +280,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
 
   void _showDeliveryDetails(Map<String, dynamic> delivery) {
     final product = allProducts.firstWhere(
-        (p) => p['id'] == delivery['productId'],
-        orElse: () => {});
+      (p) => p['id'] == delivery['productId'],
+      orElse: () => {},
+    );
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -284,6 +304,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            Text(
+              "Delivery Date: ${DateTime.parse(delivery['createdAt']).toLocal()}",
+            ),
           ],
         ),
         actions: [
@@ -300,22 +323,19 @@ class _DeliveryPageState extends State<DeliveryPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
-    // ========= Filter by date & sort by time (mutable list) =========
+    // Filter + sort deliveries
     List<Map<String, dynamic>> filteredDeliveries;
     if (selectedDateTime == null) {
-      filteredDeliveries = List.from(deliveries); // make mutable copy
+      filteredDeliveries = List.from(deliveries);
     } else {
-      filteredDeliveries = deliveries
-          .where((delivery) {
-            final d = DateTime.parse(delivery["createdAt"]);
-            return d.year == selectedDateTime!.year &&
-                   d.month == selectedDateTime!.month &&
-                   d.day == selectedDateTime!.day;
-          })
-          .toList(); // mutable
+      filteredDeliveries = deliveries.where((delivery) {
+        final d = DateTime.parse(delivery["createdAt"]);
+        return d.year == selectedDateTime!.year &&
+            d.month == selectedDateTime!.month &&
+            d.day == selectedDateTime!.day;
+      }).toList();
     }
 
-    // Sort by delivery time (earliest first)
     filteredDeliveries.sort((a, b) {
       final dateA = DateTime.parse(a["createdAt"]);
       final dateB = DateTime.parse(b["createdAt"]);
@@ -325,6 +345,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
     return Scaffold(
       body: Column(
         children: [
+          // ===== HEADER =====
           Container(
             padding: EdgeInsets.all(screenWidth * 0.03),
             color: Colors.white,
@@ -370,8 +391,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 Row(
                   children: [
                     IconButton(
-                      icon: Icon(Icons.notifications,
-                          color: Colors.blue, size: screenWidth * 0.07),
+                      icon: const Icon(Icons.notifications),
+                      color: Colors.blue,
+                      iconSize: 24,
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -382,8 +404,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
                       },
                     ),
                     IconButton(
-                      icon: Icon(Icons.settings,
-                          color: Colors.blue, size: screenWidth * 0.07),
+                      icon: const Icon(Icons.settings),
+                      color: Colors.blue,
+                      iconSize: 24,
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -399,6 +422,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
             ),
           ),
           const SizedBox(height: 12),
+          // ===== FILTER BAR =====
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -430,8 +454,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
                   children: [
                     if (isSelectionMode) ...[
                       ElevatedButton.icon(
-                        onPressed:
-                            selectedDeliveries.isEmpty ? null : _deleteSelected,
+                        onPressed: selectedDeliveries.isEmpty
+                            ? null
+                            : _deleteSelected,
                         icon: const Icon(Icons.delete, size: 16),
                         label: const Text("Delete"),
                         style: ElevatedButton.styleFrom(
@@ -468,20 +493,24 @@ class _DeliveryPageState extends State<DeliveryPage> {
             ),
           ),
           const SizedBox(height: 8),
+          // ===== ADD BUTTON =====
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Align(
               alignment: Alignment.centerLeft,
               child: ElevatedButton.icon(
                 onPressed: _showAddDeliveryDialog,
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add, color: Colors.white), //  icon white too
                 label: const Text("Add Delivery"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white, //  makes text white
+                  textStyle: const TextStyle(color: Colors.white), // extra safety
                 ),
               ),
             ),
           ),
+          // ===== LIST OF DELIVERIES =====
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -511,8 +540,11 @@ class _DeliveryPageState extends State<DeliveryPage> {
                       children: [
                         Text("Customer: ${delivery['customerName']}"),
                         Text("Status: ${delivery['status'] ?? 'Pending'}",
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text("Date: ${DateTime.parse(delivery['createdAt']).toLocal()}"),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold)),
+                        Text(
+                          "Date: ${DateTime.parse(delivery['createdAt']).toLocal()}",
+                        ),
                       ],
                     ),
                     trailing: !isSelectionMode
@@ -526,6 +558,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
               },
             ),
           ),
+          // ===== BOTTOM NAV =====
           Container(
             padding: EdgeInsets.symmetric(
               horizontal: screenWidth * 0.05,

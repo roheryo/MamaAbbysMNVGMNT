@@ -21,7 +21,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), "app.db");
     return await openDatabase(
       path,
-      version: 5,
+      version: 6, // ✅ bumped version so notifications table gets created
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -73,6 +73,17 @@ class DatabaseHelper {
         FOREIGN KEY(productId) REFERENCES products(id)
       )
     ''');
+
+    // ✅ Notifications table
+    await db.execute('''
+      CREATE TABLE notifications(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        isRead INTEGER DEFAULT 0
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -104,6 +115,19 @@ class DatabaseHelper {
       // Ensure 'quantity' column exists
       await _ensureDeliveriesQuantityColumn(db);
     }
+
+    if (oldVersion < 6) {
+      // ✅ Ensure notifications table exists
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS notifications(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          createdAt TEXT NOT NULL,
+          isRead INTEGER DEFAULT 0
+        )
+      ''');
+    }
   }
 
   /// Checks if 'quantity' exists in deliveries, adds it if missing
@@ -112,8 +136,7 @@ class DatabaseHelper {
     bool hasQuantity = columns.any((col) => col['name'] == 'quantity');
     if (!hasQuantity) {
       await db.execute(
-        'ALTER TABLE deliveries ADD COLUMN quantity INTEGER DEFAULT 0'
-      );
+          'ALTER TABLE deliveries ADD COLUMN quantity INTEGER DEFAULT 0');
     }
   }
 
@@ -201,6 +224,44 @@ class DatabaseHelper {
     final db = await database;
     return await db.update('deliveries', {'status': status},
         where: 'id = ?', whereArgs: [id]);
+  }
+
+  //  Delete delivery
+  Future<int> deleteDelivery(int id) async {
+    final db = await database;
+    return await db.delete('deliveries', where: 'id = ?', whereArgs: [id]);
+  }
+
+
+  // ===================== Notifications Methods =====================
+  Future<int> insertNotification(String title, String message) async {
+    final db = await database;
+    return await db.insert('notifications', {
+      "title": title,
+      "message": message,
+      "isRead": 0,
+      "createdAt": DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> fetchNotifications({bool onlyUnread = false}) async {
+    final db = await database;
+    return await db.query(
+      "notifications",
+      where: onlyUnread ? "isRead = 0" : null,
+      orderBy: "createdAt DESC",
+    );
+  }
+
+  Future<int> markAllNotificationsRead() async {
+    final db = await database;
+    return await db.update("notifications", {"isRead": 1});
+  }
+
+  Future<bool> hasUnreadNotifications() async {
+    final db = await database;
+    final res = await db.query("notifications", where: "isRead = 0", limit: 1);
+    return res.isNotEmpty;
   }
 
   // ===================== Debug Helper =====================
