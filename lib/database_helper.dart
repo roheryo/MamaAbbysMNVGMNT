@@ -247,6 +247,30 @@ class DatabaseHelper {
     return res.isNotEmpty;
   }
 
+  // ===================== Low Stock Checker =====================
+  Future<void> checkLowStockProducts({int threshold = 7}) async {
+    final db = await database;
+    final products = await db.query('products');
+    for (var p in products) {
+      final qty = (p['quantity'] is int)
+          ? p['quantity'] as int
+          : int.tryParse(p['quantity']?.toString() ?? '0') ?? 0;
+      if (qty < threshold) {
+        final productName = p['productName']?.toString() ?? 'Unknown Product';
+        final message = "$productName stock is low: $qty left ";
+        final existing = await db.query(
+          'notifications',
+          where: 'message = ?',
+          whereArgs: [message],
+          limit: 1,
+        );
+        if (existing.isEmpty) {
+          await insertNotification('Low Stock', message);
+        }
+      }
+    }
+  }
+
   // ===================== Overdue Deliveries Checker =====================
   DateTime? _parseDynamicDate(dynamic value) {
     if (value == null) return null;
@@ -294,6 +318,12 @@ class DatabaseHelper {
         }
       }
     }
+  }
+
+  // ===================== Unified Trigger =====================
+  Future<void> triggerAllNotifications() async {
+    await checkLowStockProducts();
+    await checkOverdueDeliveries(overdueAfter: Duration.zero);
   }
 
   // ===================== Debug Helper =====================

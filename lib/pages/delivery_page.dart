@@ -30,7 +30,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
 
   Future<void> _refreshDeliveriesAndCheckOverdue() async {
     final db = DatabaseHelper();
-    await db.checkOverdueDeliveries();
+    await db.checkOverdueDeliveries(overdueAfter: Duration.zero);
     deliveries = await db.fetchDeliveries();
     setState(() {});
   }
@@ -265,7 +265,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     "category": category,
                     "productId": selectedProduct!['id'],
                     "quantity": enteredQty,
-                    "createdAt": deliveryDate!.toIso8601String(),
+                    "createdAt": deliveryDate!.toString(),
                     "status": "Pending",
                   });
 
@@ -556,7 +556,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                           ),
                         ),
                         Text(
-                          "Date: ${DateTime.parse(delivery['createdAt']).toLocal()}",
+                          "Date: ${DateTime.parse(delivery['createdAt']).toString()}",
                         ),
                       ],
                     ),

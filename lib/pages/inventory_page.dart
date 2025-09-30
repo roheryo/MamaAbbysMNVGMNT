@@ -40,6 +40,7 @@ class _InventoryPageState extends State<InventoryPage> {
 
   Future<void> _loadProducts() async {
     final db = DatabaseHelper();
+    await db.checkLowStockProducts();
     final data = await db.fetchProducts();
     setState(() {
       allProducts = data;
