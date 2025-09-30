@@ -106,7 +106,7 @@ class _NotificationPage extends State<NotificationPage> {
           // ===== Header =====
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
             color: Colors.white,
             child: Row(
               children: [
@@ -126,15 +126,19 @@ class _NotificationPage extends State<NotificationPage> {
             child: notifications.isEmpty
                 ? const Center(child: Text("No notifications yet"))
                 : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
                     itemCount: notifications.length,
                     itemBuilder: (context, index) {
                       final n = notifications[index];
                       return Stack(
                         children: [
                           Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                             child: ListTile(
-                              leading: const Icon(Icons.error, color: Colors.orange, size: 30), // ⚠️ Yellow exclamation
+                              dense: true,
+                              visualDensity: const VisualDensity(vertical: -4),
+                              contentPadding: const EdgeInsets.fromLTRB(12, 4, 32, 4),
+                              leading: const Icon(Icons.error, color: Colors.orange, size: 24),
                               title: Text(
                                 n["message"] ?? "No message",
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
@@ -146,8 +150,8 @@ class _NotificationPage extends State<NotificationPage> {
                             ),
                           ),
                           Positioned(
-                            right: 4,
-                            top: 4,
+                            right: 2,
+                            top: 2,
                             child: IconButton(
                               icon: const Icon(Icons.close, size: 18, color: Colors.grey),
                               onPressed: () => _deleteNotification(n["id"]),

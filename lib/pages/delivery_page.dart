@@ -88,6 +88,49 @@ class _DeliveryPageState extends State<DeliveryPage> {
     setState(() => hasUnread = v);
   }
 
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: MediaQuery.of(context).size.width * 0.08, color: color),
+            const SizedBox(height: 6),
+            isActive
+                ? Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: color, width: 2),
+                      ),
+                    ),
+                    child: const Text(
+                      "Delivery",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _loadCategoriesAndProducts() async {
     final db = DatabaseHelper();
     allProducts = await db.fetchProducts();
@@ -322,7 +365,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     "status": "Pending",
                   });
 
-                  // Immediately deduct from inventory
+                    // Immediately deduct from inventory
                   final newQty = (selectedProduct!['quantity'] as int) - enteredQty;
                   await DatabaseHelper().updateProduct(
                     selectedProduct!['id'] as int,
@@ -559,6 +602,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                         label: const Text("Delete"),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -707,74 +751,38 @@ class _DeliveryPageState extends State<DeliveryPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const InventoryPage(),
-                        ),
-                      );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.inventory,
-                          size: screenWidth * 0.08,
-                          color: Colors.blue,
-                        ),
-                        const Text(
-                          "Inventory",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
+                _buildNavItem(
+                  icon: Icons.inventory,
+                  label: "Inventory",
+                  isActive: false,
+                  color: Colors.blue,
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const InventoryPage(),
+                      ),
+                    );
+                  },
                 ),
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SalesPage()),
-                      );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.bar_chart,
-                          size: screenWidth * 0.08,
-                          color: Colors.green,
-                        ),
-                        const Text(
-                          "Sales",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
+                _buildNavItem(
+                  icon: Icons.bar_chart,
+                  label: "Sales",
+                  isActive: false,
+                  color: Colors.green,
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SalesPage()),
+                    );
+                  },
                 ),
-                Expanded(
-                  child: InkWell(
-                    onTap: () {},
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.local_shipping,
-                          size: screenWidth * 0.08,
-                          color: Colors.orange,
-                        ),
-                        const Text(
-                          "Delivery",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
+                _buildNavItem(
+                  icon: Icons.local_shipping,
+                  label: "Delivery",
+                  isActive: true,
+                  color: Colors.orange,
+                  onTap: () {},
                 ),
               ],
             ),

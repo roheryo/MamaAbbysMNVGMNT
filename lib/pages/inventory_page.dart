@@ -364,6 +364,7 @@ Padding(
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
           ),
           onPressed: _deleteSelected,
           child: const Text("Delete"),
