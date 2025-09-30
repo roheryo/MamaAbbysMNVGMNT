@@ -241,6 +241,16 @@ class DatabaseHelper {
     return await db.update("notifications", {"isRead": 1});
   }
 
+  Future<int> markNotificationsReadByIds(List<int> ids) async {
+    if (ids.isEmpty) return 0;
+    final db = await database;
+    final placeholders = List.filled(ids.length, '?').join(',');
+    return await db.rawUpdate(
+      'UPDATE notifications SET isRead = 1 WHERE id IN ($placeholders)',
+      ids.map((e) => e).toList(),
+    );
+  }
+
   Future<bool> hasUnreadNotifications() async {
     final db = await database;
     final res = await db.query("notifications", where: "isRead = 0", limit: 1);

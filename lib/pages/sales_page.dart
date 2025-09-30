@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/pages/notification_page.dart';
 import 'package:flutter_applicationtest/pages/settings_page.dart';
+import 'package:flutter_applicationtest/database_helper.dart';
 import 'package:intl/intl.dart';
 
 import 'inventory_page.dart'; // Create this file for InventoryPage
@@ -16,6 +17,7 @@ class SalesPage extends StatefulWidget {
 class _SalesPageState extends State<SalesPage> {
   // Track selected filter
   String selectedFilter = "Today";
+  bool hasUnread = false;
 
   // Track picked dates
   DateTime? selectedDate; // for Today
@@ -77,6 +79,18 @@ class _SalesPageState extends State<SalesPage> {
         "Selected Month: ${DateFormat('MMMM yyyy').format(selectedMonth!)}",
       );
     }
+  }
+
+  Future<void> _refreshUnread() async {
+    final v = await DatabaseHelper().hasUnreadNotifications();
+    if (!mounted) return;
+    setState(() => hasUnread = v);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshUnread();
   }
 
   // ===== Helper Widget for Bottom Navigation =====
@@ -177,18 +191,36 @@ class _SalesPageState extends State<SalesPage> {
                 ),
                 Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications),
-                      color: Colors.blue,
-                      iconSize: 24,
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationPage(),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications),
+                          color: Colors.blue,
+                          iconSize: 24,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const NotificationPage(),
+                              ),
+                            ).then((_) => _refreshUnread());
+                          },
+                        ),
+                        if (hasUnread)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
                           ),
-                        );
-                      },
+                      ],
                     ),
                     Padding(
                       padding: const EdgeInsets.only(right: 4),

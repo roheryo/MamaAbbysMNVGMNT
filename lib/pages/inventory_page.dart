@@ -17,6 +17,7 @@ class _InventoryPageState extends State<InventoryPage> {
   String selectedCategory = 'All';
   bool isSelectionMode = false;
   final Set<int> selectedProducts = {};
+  bool hasUnread = false;
 
   final List<String> categories = [
     'All',
@@ -36,6 +37,7 @@ class _InventoryPageState extends State<InventoryPage> {
   void initState() {
     super.initState();
     _loadProducts();
+    _refreshUnread();
   }
 
   Future<void> _loadProducts() async {
@@ -46,6 +48,39 @@ class _InventoryPageState extends State<InventoryPage> {
       allProducts = data;
       products = List.from(allProducts); // display copy
     });
+
+    // Show toast for the latest unread notification, then mark it read
+    final unread = await db.fetchNotifications(onlyUnread: true);
+    if (unread.isNotEmpty && mounted) {
+      final latest = unread.first;
+      final message = latest['message']?.toString() ?? 'New notification';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationPage()),
+              ).then((_) => _refreshUnread());
+            },
+          ),
+        ),
+      );
+      final id = latest['id'];
+      if (id is int) {
+        await db.markNotificationsReadByIds([id]);
+      }
+      await _refreshUnread();
+    }
+  }
+
+  Future<void> _refreshUnread() async {
+    final db = DatabaseHelper();
+    final v = await db.hasUnreadNotifications();
+    if (!mounted) return;
+    setState(() => hasUnread = v);
   }
 
   Future<void> _deleteSelected() async {
@@ -193,18 +228,36 @@ class _InventoryPageState extends State<InventoryPage> {
                 ),
                 Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications),
-                      color: Colors.blue,
-                      iconSize: 24,
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationPage(),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications),
+                          color: Colors.blue,
+                          iconSize: 24,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const NotificationPage(),
+                              ),
+                            ).then((_) => _refreshUnread());
+                          },
+                        ),
+                        if (hasUnread)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
                           ),
-                        );
-                      },
+                      ],
                     ),
                     Padding(
                       padding: const EdgeInsets.only(right: 4),

@@ -17,6 +17,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
   DateTime? selectedDateTime;
   bool isSelectionMode = false;
   Set<int> selectedDeliveries = {};
+  bool hasUnread = false;
 
   List<String> categories = [];
   List<Map<String, dynamic>> allProducts = [];
@@ -26,6 +27,25 @@ class _DeliveryPageState extends State<DeliveryPage> {
     super.initState();
     _refreshDeliveriesAndCheckOverdue();
     _loadCategoriesAndProducts();
+    _refreshUnread();
+  }
+
+  DateTime? _tryParseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+    if (value is int) {
+      try {
+        if (value > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(value);
+        if (value > 1000000000) return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+        return DateTime.fromMillisecondsSinceEpoch(value);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 
   Future<void> _refreshDeliveriesAndCheckOverdue() async {
@@ -33,6 +53,39 @@ class _DeliveryPageState extends State<DeliveryPage> {
     await db.checkOverdueDeliveries(overdueAfter: Duration.zero);
     deliveries = await db.fetchDeliveries();
     setState(() {});
+
+    // Show toast for the latest unread notification, then mark it read
+    final unread = await db.fetchNotifications(onlyUnread: true);
+    if (unread.isNotEmpty && mounted) {
+      final latest = unread.first;
+      final message = latest['message']?.toString() ?? 'New notification';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationPage()),
+              ).then((_) => _refreshUnread());
+            },
+          ),
+        ),
+      );
+      final id = latest['id'];
+      if (id is int) {
+        await db.markNotificationsReadByIds([id]);
+      }
+      await _refreshUnread();
+    }
+  }
+
+  Future<void> _refreshUnread() async {
+    final db = DatabaseHelper();
+    final v = await db.hasUnreadNotifications();
+    if (!mounted) return;
+    setState(() => hasUnread = v);
   }
 
   Future<void> _loadCategoriesAndProducts() async {
@@ -307,8 +360,12 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(
-              "Delivery Date: ${DateTime.parse(delivery['createdAt']).toLocal()}",
+            Builder(
+              builder: (_) {
+                final dt = _tryParseDate(delivery['createdAt']);
+                final dateText = dt != null ? dt.toLocal().toString() : (delivery['createdAt']?.toString() ?? 'N/A');
+                return Text("Delivery Date: $dateText");
+              },
             ),
           ],
         ),
@@ -331,7 +388,8 @@ class _DeliveryPageState extends State<DeliveryPage> {
       filteredDeliveries = List.from(deliveries);
     } else {
       filteredDeliveries = deliveries.where((delivery) {
-        final d = DateTime.parse(delivery["createdAt"]);
+        final d = _tryParseDate(delivery["createdAt"]);
+        if (d == null) return false;
         return d.year == selectedDateTime!.year &&
             d.month == selectedDateTime!.month &&
             d.day == selectedDateTime!.day;
@@ -346,8 +404,11 @@ class _DeliveryPageState extends State<DeliveryPage> {
           (a["status"] ?? "") != "Delivered") {
         return -1;
       }
-      final dateA = DateTime.parse(a["createdAt"]);
-      final dateB = DateTime.parse(b["createdAt"]);
+      final dateA = _tryParseDate(a["createdAt"]);
+      final dateB = _tryParseDate(b["createdAt"]);
+      if (dateA == null && dateB == null) return 0;
+      if (dateA == null) return 1; // nulls last
+      if (dateB == null) return -1;
       return dateA.compareTo(dateB);
     });
 
@@ -399,18 +460,36 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 ),
                 Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications),
-                      color: Colors.blue,
-                      iconSize: 24,
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationPage(),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications),
+                          color: Colors.blue,
+                          iconSize: 24,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const NotificationPage(),
+                              ),
+                            ).then((_) => _refreshUnread());
+                          },
+                        ),
+                        if (hasUnread)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
                           ),
-                        );
-                      },
+                      ],
                     ),
                     IconButton(
                       icon: const Icon(Icons.settings),
@@ -555,8 +634,12 @@ class _DeliveryPageState extends State<DeliveryPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          "Date: ${DateTime.parse(delivery['createdAt']).toString()}",
+                        Builder(
+                          builder: (_) {
+                            final dt = _tryParseDate(delivery['createdAt']);
+                            final text = dt != null ? dt.toString() : (delivery['createdAt']?.toString() ?? 'N/A');
+                            return Text("Date: $text");
+                          },
                         ),
                       ],
                     ),
