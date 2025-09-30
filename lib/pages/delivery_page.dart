@@ -322,6 +322,16 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     "status": "Pending",
                   });
 
+                  // Immediately deduct from inventory
+                  final newQty = (selectedProduct!['quantity'] as int) - enteredQty;
+                  await DatabaseHelper().updateProduct(
+                    selectedProduct!['id'] as int,
+                    {"quantity": newQty < 0 ? 0 : newQty},
+                  );
+
+                  // Re-evaluate low stock notifications after deduction
+                  await DatabaseHelper().checkLowStockProducts();
+
                   await _refreshDeliveriesAndCheckOverdue();
                   Navigator.pop(context);
                 },
