@@ -489,21 +489,25 @@ class _DeliveryPageState extends State<DeliveryPage> {
       }).toList();
     }
 
-    filteredDeliveries.sort((a, b) {
-      if ((a["status"] ?? "") == "Delivered" &&
-          (b["status"] ?? "") != "Delivered") {
-        return 1;
-      } else if ((b["status"] ?? "") == "Delivered" &&
-          (a["status"] ?? "") != "Delivered") {
-        return -1;
-      }
-      final dateA = _tryParseDate(a["createdAt"]);
-      final dateB = _tryParseDate(b["createdAt"]);
-      if (dateA == null && dateB == null) return 0;
-      if (dateA == null) return 1; // nulls last
-      if (dateB == null) return -1;
-      return dateA.compareTo(dateB);
-    });
+      filteredDeliveries.sort((a, b) {
+    final statusA = (a["status"] ?? "").toString().toLowerCase();
+    final statusB = (b["status"] ?? "").toString().toLowerCase();
+
+    // Push Delivered and Cancelled to the bottom
+    final isDoneA = statusA == "delivered" || statusA == "cancelled";
+    final isDoneB = statusB == "delivered" || statusB == "cancelled";
+
+    if (isDoneA && !isDoneB) return 1;
+    if (!isDoneA && isDoneB) return -1;
+
+    final dateA = _tryParseDate(a["createdAt"]);
+    final dateB = _tryParseDate(b["createdAt"]);
+    if (dateA == null && dateB == null) return 0;
+    if (dateA == null) return 1; // nulls last
+    if (dateB == null) return -1;
+    return dateA.compareTo(dateB);
+  });
+
 
     return Scaffold(
       body: Column(
