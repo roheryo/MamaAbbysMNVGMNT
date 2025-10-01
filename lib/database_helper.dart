@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:intl/intl.dart';
@@ -97,7 +98,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), "app.db");
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -165,6 +166,68 @@ class DatabaseHelper {
         holiday_flag INTEGER NOT NULL DEFAULT 0,
         sales REAL NOT NULL
       )
+    ''');
+
+    // Holiday reference table
+    await db.execute('''
+      CREATE TABLE holidays(
+        holiday_date DATE PRIMARY KEY,
+        name TEXT NOT NULL
+      )
+    ''');
+
+    // Seed 2025 holiday schedule
+    final List<List<String>> _holidays2025 = [
+      ['2025-01-01', "New Year's Day"],
+      ['2025-01-29', 'Chinese New Year'],
+      ['2025-02-25', 'EDSA People Power Revolution Anniversary'],
+      ["2025-04-01", "Eid'l Fitr (Feast of Ramadhan)"],
+      ['2025-04-09', 'Araw ng Kagitingan'],
+      ['2025-04-17', 'Maundy Thursday'],
+      ['2025-04-18', 'Good Friday'],
+      ['2025-04-19', 'Black Saturday'],
+      ['2025-05-01', 'Labor Day'],
+      ['2025-06-06', 'Eidul Adha (Feast of Sacrifice)'],
+      ['2025-06-12', 'Independence Day'],
+      ['2025-08-21', 'Ninoy Aquino Day'],
+      ['2025-08-25', 'National Heroes Day'],
+      ['2025-10-31', "All Saints' Day Eve"],
+      ['2025-11-01', "All Saints' Day"],
+      ['2025-11-30', 'Bonifacio Day'],
+      ['2025-12-08', 'Feast of the Immaculate Conception of Mary'],
+      ['2025-12-24', 'Christmas Eve'],
+      ['2025-12-25', 'Christmas Day'],
+      ['2025-12-30', 'Rizal Day'],
+    ];
+    for (final h in _holidays2025) {
+      await db.insert('holidays', {'holiday_date': h[0], 'name': h[1]});
+    }
+
+    // Triggers to keep holiday_flag in sync based on holidays table
+    await db.execute('''
+      CREATE TRIGGER trg_store_sales_set_holiday_flag_after_insert
+      AFTER INSERT ON store_sales
+      BEGIN
+        UPDATE store_sales
+        SET holiday_flag = CASE
+          WHEN EXISTS (SELECT 1 FROM holidays h WHERE h.holiday_date = NEW.sale_date) THEN 1
+          ELSE 0
+        END
+        WHERE id = NEW.id;
+      END;
+    ''');
+
+    await db.execute('''
+      CREATE TRIGGER trg_store_sales_set_holiday_flag_after_update
+      AFTER UPDATE OF sale_date ON store_sales
+      BEGIN
+        UPDATE store_sales
+        SET holiday_flag = CASE
+          WHEN EXISTS (SELECT 1 FROM holidays h WHERE h.holiday_date = NEW.sale_date) THEN 1
+          ELSE 0
+        END
+        WHERE id = NEW.id;
+      END;
     ''');
 
     await db.execute('''
@@ -290,6 +353,83 @@ class DatabaseHelper {
           saleDate TEXT NOT NULL,
           FOREIGN KEY(productId) REFERENCES products(id)
         )
+      ''');
+    }
+
+    if (oldVersion < 10) {
+      // Create holidays table if missing
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS holidays(
+          holiday_date DATE PRIMARY KEY,
+          name TEXT NOT NULL
+        )
+      ''');
+
+      // Seed 2025 holidays (idempotent inserts)
+      final List<List<String>> _holidays2025 = [
+        ['2025-01-01', "New Year's Day"],
+        ['2025-01-29', 'Chinese New Year'],
+        ['2025-02-25', 'EDSA People Power Revolution Anniversary'],
+        ["2025-04-01", "Eid'l Fitr (Feast of Ramadhan)"],
+        ['2025-04-09', 'Araw ng Kagitingan'],
+        ['2025-04-17', 'Maundy Thursday'],
+        ['2025-04-18', 'Good Friday'],
+        ['2025-04-19', 'Black Saturday'],
+        ['2025-05-01', 'Labor Day'],
+        ['2025-06-06', 'Eidul Adha (Feast of Sacrifice)'],
+        ['2025-06-12', 'Independence Day'],
+        ['2025-08-21', 'Ninoy Aquino Day'],
+        ['2025-08-25', 'National Heroes Day'],
+        ['2025-10-31', "All Saints' Day Eve"],
+        ['2025-11-01', "All Saints' Day"],
+        ['2025-11-30', 'Bonifacio Day'],
+        ['2025-12-08', 'Feast of the Immaculate Conception of Mary'],
+        ['2025-12-24', 'Christmas Eve'],
+        ['2025-12-25', 'Christmas Day'],
+        ['2025-12-30', 'Rizal Day'],
+      ];
+      for (final h in _holidays2025) {
+        // Use INSERT OR IGNORE for idempotency
+        await db.insert('holidays', {'holiday_date': h[0], 'name': h[1]}, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+
+      // Create/replace triggers
+      await db.execute('DROP TRIGGER IF EXISTS trg_store_sales_set_holiday_flag_after_insert');
+      await db.execute('DROP TRIGGER IF EXISTS trg_store_sales_set_holiday_flag_after_update');
+
+      await db.execute('''
+        CREATE TRIGGER trg_store_sales_set_holiday_flag_after_insert
+        AFTER INSERT ON store_sales
+        BEGIN
+          UPDATE store_sales
+          SET holiday_flag = CASE
+            WHEN EXISTS (SELECT 1 FROM holidays h WHERE h.holiday_date = NEW.sale_date) THEN 1
+            ELSE 0
+          END
+          WHERE id = NEW.id;
+        END;
+      ''');
+
+      await db.execute('''
+        CREATE TRIGGER trg_store_sales_set_holiday_flag_after_update
+        AFTER UPDATE OF sale_date ON store_sales
+        BEGIN
+          UPDATE store_sales
+          SET holiday_flag = CASE
+            WHEN EXISTS (SELECT 1 FROM holidays h WHERE h.holiday_date = NEW.sale_date) THEN 1
+            ELSE 0
+          END
+          WHERE id = NEW.id;
+        END;
+      ''');
+
+      // Backfill existing rows
+      await db.execute('''
+        UPDATE store_sales
+        SET holiday_flag = CASE
+          WHEN EXISTS (SELECT 1 FROM holidays h WHERE h.holiday_date = sale_date) THEN 1
+          ELSE 0
+        END
       ''');
     }
   }
@@ -784,7 +924,7 @@ class DatabaseHelper {
       'sales_transactions',
       where: where.isNotEmpty ? where : null,
       whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-      orderBy: 'saleDate DESC',
+      orderBy: 'saleDate ASC',
     );
   }
 
@@ -837,7 +977,7 @@ class DatabaseHelper {
       'FROM sales_transactions st '
       'LEFT JOIN products p ON p.id = st.productId'
       '${where.isNotEmpty ? ' WHERE ' + where : ''} '
-      'ORDER BY st.saleDate DESC',
+      'ORDER BY st.saleDate ASC',
       whereArgs.isNotEmpty ? whereArgs : null,
     );
 
@@ -981,4 +1121,269 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), "app.db");
     print("Database is stored here: $path");
   }
+
+  // ===================== Data Seeding & Generation =====================
+  
+  /// Ensures there are products in the catalog by seeding initial stock when empty.
+  /// Uses the static [productCatalog] list to create products with randomized
+  /// prices and quantities per category.
+  Future<void> seedInitialProductsIfEmpty() async {
+    final db = await database;
+    final countRes = await db.rawQuery('SELECT COUNT(*) as c FROM products');
+    final count = (countRes.first['c'] as num?)?.toInt() ?? 0;
+    if (count > 0) return;
+
+    final random = Random(42);
+
+    // Simple price baselines per category for realism
+    final Map<String, double> categoryBasePrice = {
+      'Virginia Products': 180.0,
+      'Big Shot Products': 160.0,
+      'Beefies Products': 170.0,
+      'Purefoods': 190.0,
+      'Chicken': 200.0,
+      'Pork': 220.0,
+      'Others': 150.0,
+    };
+
+    final nowIso = DateTime.now().toIso8601String();
+
+    for (final entry in productCatalog.entries) {
+      final category = entry.key;
+      final items = entry.value;
+      final base = categoryBasePrice[category] ?? 160.0;
+      for (final name in items) {
+        final qty = 20 + random.nextInt(40); // 20..59
+        final price = base + random.nextInt(60); // base..base+59
+        await db.insert('products', {
+          'productName': name,
+          'category': category,
+          'quantity': qty,
+          'unitPrice': price.toDouble(),
+          'createdAt': nowIso,
+        });
+      }
+    }
+  }
+
+  /// Returns total count of transactions in [sales_transactions]
+  Future<int> getSalesTransactionsCount() async {
+    final db = await database;
+    final res = await db.rawQuery('SELECT COUNT(*) as c FROM sales_transactions');
+    return (res.first['c'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Randomly restocks a subset of products to keep stock available for simulation.
+  Future<void> _restockSomeProducts(Transaction txn, {int maxItems = 10}) async {
+    final rnd = Random();
+    final products = await txn.query('products');
+    if (products.isEmpty) return;
+    final restockCount = 1 + rnd.nextInt(maxItems.clamp(1, 20));
+    for (int i = 0; i < restockCount; i++) {
+      final p = products[rnd.nextInt(products.length)];
+      final id = (p['id'] as num).toInt();
+      final currentQty = (p['quantity'] as num).toInt();
+      final addQty = 10 + rnd.nextInt(30); // 10..39
+      await txn.update('products', {'quantity': currentQty + addQty}, where: 'id = ?', whereArgs: [id]);
+    }
+  }
+
+  /// Generates historical transactions and maintains daily aggregates in [store_sales].
+  /// - Ensures products exist (seeds if empty)
+  /// - Creates transactions spread across the last [daysBack] days
+  /// - Guarantees at least [minTotalTransactions] transactions overall by adjusting density
+  /// - Updates product stock and daily [store_sales] aggregates
+  Future<int> generateHistoricalSales({
+    int minTotalTransactions = 500,
+    int daysBack = 120,
+  }) async {
+    await seedInitialProductsIfEmpty();
+    final db = await database;
+
+    int created = 0;
+    final rnd = Random(7);
+    final today = DateTime.now();
+
+    // Determine average transactions per day to reach target
+    final avgPerDay = (minTotalTransactions / daysBack).ceil(); // spread out
+
+    // Fetch all products once to choose from
+    List<Map<String, dynamic>> products = await db.query('products');
+    if (products.isEmpty) return 0;
+
+    // Helper to insert/accumulate store_sales for a given day
+    Future<void> _upsertDailySales(Transaction txn, DateTime day, double amount) async {
+      final dayStr = DateFormat('yyyy-MM-dd').format(day);
+      final existing = await txn.query('store_sales', where: 'sale_date = ?', whereArgs: [dayStr]);
+      if (existing.isNotEmpty) {
+        final currentSales = (existing.first['sales'] as num).toDouble();
+        await txn.update('store_sales', {'sales': currentSales + amount}, where: 'sale_date = ?', whereArgs: [dayStr]);
+      } else {
+        final dayOfWeek = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][day.weekday - 1];
+        final holidayFlag = day.weekday == 7 || day.weekday == 1; // weekend
+        await txn.insert('store_sales', {
+          'sale_date': dayStr,
+          'day_of_week': dayOfWeek,
+          'month': day.month,
+          'holiday_flag': holidayFlag ? 1 : 0,
+          'sales': amount,
+        });
+      }
+    }
+
+    for (int d = daysBack; d >= 0; d--) {
+      final day = DateTime(today.year, today.month, today.day).subtract(Duration(days: d));
+      // Randomize number of transactions this day around avgPerDay
+      final dayTx = (avgPerDay - 2 + rnd.nextInt(5)).clamp(1, avgPerDay + 3);
+
+      await db.transaction((txn) async {
+        // occasional restock to avoid running out
+        if (rnd.nextDouble() < 0.25) {
+          await _restockSomeProducts(txn, maxItems: 6);
+        }
+
+        double dayTotal = 0.0;
+
+        for (int i = 0; i < dayTx; i++) {
+          // Refresh a few product snapshots this txn iteration to reflect stock changes
+          final p = (await txn.query('products', orderBy: 'RANDOM()', limit: 1)).first;
+          final productId = (p['id'] as num).toInt();
+          final productName = p['productName'] as String;
+          int stock = (p['quantity'] as num).toInt();
+          final unitPrice = (p['unitPrice'] as num).toDouble();
+
+          if (stock <= 0) {
+            // skip or restock slightly
+            if (rnd.nextDouble() < 0.2) {
+              final addQty = 5 + rnd.nextInt(10);
+              stock += addQty;
+              await txn.update('products', {'quantity': stock}, where: 'id = ?', whereArgs: [productId]);
+            } else {
+              continue;
+            }
+          }
+
+          final qty = 1 + rnd.nextInt(min(5, max(1, stock)));
+          final totalAmount = unitPrice * qty;
+
+          // update stock
+          await txn.update('products', {'quantity': stock - qty}, where: 'id = ?', whereArgs: [productId]);
+
+          // insert sales transaction with saleDate on this day at a random time
+          final saleDate = DateTime(day.year, day.month, day.day, rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60));
+          await txn.insert('sales_transactions', {
+            'productId': productId,
+            'productName': productName,
+            'quantity': qty,
+            'unitPrice': unitPrice,
+            'totalAmount': totalAmount,
+            'saleDate': saleDate.toIso8601String(),
+          });
+
+          dayTotal += totalAmount;
+          created++;
+        }
+
+        if (dayTotal > 0) {
+          await _upsertDailySales(txn, day, dayTotal);
+        }
+      });
+    }
+
+    return created;
+  }
+
+  /// Ensures that at least [minTransactions] exist. Generates additional history if needed.
+  Future<int> ensureHistoricalData({int minTransactions = 500}) async {
+    final existing = await getSalesTransactionsCount();
+    if (existing >= minTransactions) return 0;
+    final toCreate = minTransactions - existing;
+    // spread across ~120 days; generator itself will at least reach target
+    return await generateHistoricalSales(minTotalTransactions: max(minTransactions, toCreate), daysBack: 120);
+  }
+
+  // ===================== Sales Aggregates Reconciliation =====================
+
+  /// Public API to recompute all daily aggregates in `store_sales` from `sales_transactions`.
+  Future<void> recomputeAllStoreSales() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      // Gather distinct dates (YYYY-MM-DD) from transactions
+      final dates = await txn.rawQuery(
+        "SELECT SUBSTR(saleDate, 1, 10) as d FROM sales_transactions GROUP BY d",
+      );
+
+      // Clear all aggregates first to avoid stale rows
+      await txn.delete('store_sales');
+
+      for (final r in dates) {
+        final d = (r['d'] ?? '').toString();
+        if (d.isEmpty) continue;
+        await _recomputeStoreSalesForDateTx(txn, d);
+      }
+    });
+  }
+
+  /// Public API to recompute a specific date's aggregate in `store_sales`.
+  /// [date] should be in 'yyyy-MM-dd' format.
+  Future<void> recomputeStoreSalesForDate(String date) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await _recomputeStoreSalesForDateTx(txn, date);
+    });
+  }
+
+  /// Internal helper to recompute aggregate for a date within an existing transaction.
+  Future<void> _recomputeStoreSalesForDateTx(Transaction txn, String date) async {
+    DateTime dayStart;
+    try {
+      final d = DateTime.parse(date);
+      dayStart = DateTime(d.year, d.month, d.day);
+    } catch (_) {
+      // Fallback if passed a plain yyyy-MM-dd string
+      final parts = date.split('-');
+      if (parts.length == 3) {
+        final y = int.tryParse(parts[0]) ?? DateTime.now().year;
+        final m = int.tryParse(parts[1]) ?? DateTime.now().month;
+        final dd = int.tryParse(parts[2]) ?? DateTime.now().day;
+        dayStart = DateTime(y, m, dd);
+      } else {
+        dayStart = DateTime.now();
+      }
+    }
+
+    final dayEnd = DateTime(dayStart.year, dayStart.month, dayStart.day, 23, 59, 59, 999);
+    final startIso = dayStart.toIso8601String();
+    final endIso = dayEnd.toIso8601String();
+
+    final res = await txn.rawQuery(
+      'SELECT SUM(totalAmount) as total FROM sales_transactions WHERE saleDate BETWEEN ? AND ?',
+      [startIso, endIso],
+    );
+    final sum = (res.first['total'] as num?)?.toDouble() ?? 0.0;
+
+    final dayStr = DateFormat('yyyy-MM-dd').format(dayStart);
+    final existing = await txn.query('store_sales', where: 'sale_date = ?', whereArgs: [dayStr], limit: 1);
+
+    if (sum <= 0.0) {
+      if (existing.isNotEmpty) {
+        await txn.delete('store_sales', where: 'sale_date = ?', whereArgs: [dayStr]);
+      }
+    } else {
+      if (existing.isNotEmpty) {
+        await txn.update('store_sales', {'sales': sum}, where: 'sale_date = ?', whereArgs: [dayStr]);
+      } else {
+        final dayOfWeek = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][dayStart.weekday - 1];
+        final holidayFlag = dayStart.weekday == 7 || dayStart.weekday == 1; // weekend
+        await txn.insert('store_sales', {
+          'sale_date': dayStr,
+          'day_of_week': dayOfWeek,
+          'month': dayStart.month,
+          'holiday_flag': holidayFlag ? 1 : 0,
+          'sales': sum,
+        });
+      }
+    }
+  }
 }
+
