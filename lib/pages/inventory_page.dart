@@ -125,28 +125,21 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   Future<void> _showSellModal(Map<String, dynamic> product) async {
-    final TextEditingController quantityController = TextEditingController();
     final int currentStock = product['quantity'] as int;
     final double unitPrice = (product['unitPrice'] as num).toDouble();
     final String productName = product['productName'] as String;
 
-    final result = await showDialog<bool>(
+    // Create controllers and focus node outside StatefulBuilder
+    final TextEditingController quantityController = TextEditingController(text: '1');
+    final FocusNode focusNode = FocusNode();
+    int selectedQuantity = 1;
+
+    final result = await showDialog<int>(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
-            int quantity = 1;
-            double totalAmount = unitPrice;
-
-            void updateQuantity(int newQuantity) {
-              if (newQuantity >= 1 && newQuantity <= currentStock) {
-                setModalState(() {
-                  quantity = newQuantity;
-                  totalAmount = unitPrice * quantity;
-                });
-                quantityController.text = quantity.toString();
-              }
-            }
+          builder: (context, setState) {
+            double totalAmount = unitPrice * selectedQuantity;
 
             return AlertDialog(
               title: Text('Sell $productName'),
@@ -154,44 +147,101 @@ class _InventoryPageState extends State<InventoryPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Current Stock: $currentStock'),
-                  Text('Unit Price: ₱${unitPrice.toStringAsFixed(2)}'),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Current Stock: $currentStock', 
+                             style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Unit Price: ₱${unitPrice.toStringAsFixed(2)}',
+                             style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 16),
+                  const Text('Quantity to Sell:', 
+                       style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Quantity: '),
                       IconButton(
-                        onPressed: () => updateQuantity(quantity - 1),
-                        icon: const Icon(Icons.remove),
-                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        padding: EdgeInsets.zero,
+                        onPressed: selectedQuantity > 1 ? () {
+                          selectedQuantity--;
+                          quantityController.text = selectedQuantity.toString();
+                          setState(() {});
+                        } : null,
+                        icon: const Icon(Icons.remove_circle_outline),
+                        iconSize: 32,
+                        color: selectedQuantity > 1 ? Colors.red : Colors.grey,
                       ),
-                      SizedBox(
-                        width: 60,
+                      Container(
+                        width: 80,
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
                         child: TextField(
+                          key: const ValueKey('quantity_field'),
                           controller: quantityController,
+                          focusNode: focusNode,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.center,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                            counterText: '',
+                          ),
+                          maxLength: 3,
+                          onTap: () {
+                            focusNode.requestFocus();
+                          },
                           onChanged: (value) {
-                            final newQuantity = int.tryParse(value) ?? 1;
-                            if (newQuantity >= 1 && newQuantity <= currentStock) {
-                              setModalState(() {
-                                quantity = newQuantity;
-                                totalAmount = unitPrice * quantity;
-                              });
+                            // Allow empty field for editing
+                            if (value.isEmpty) {
+                              selectedQuantity = 0;
+                              setState(() {});
+                              return;
+                            }
+                            
+                            // Parse the input
+                            final newQuantity = int.tryParse(value);
+                            
+                            // Handle invalid input (non-numeric or negative)
+                            if (newQuantity == null || newQuantity < 0) {
+                              // Don't update selectedQuantity, let user continue typing
+                              return;
+                            }
+                            
+                            // Handle valid numeric input
+                            if (newQuantity >= 0 && newQuantity <= currentStock) {
+                              selectedQuantity = newQuantity;
+                              setState(() {});
+                            } else if (newQuantity > currentStock) {
+                              // Allow typing but don't update calculations
+                              selectedQuantity = newQuantity;
+                              setState(() {});
                             }
                           },
                         ),
                       ),
                       IconButton(
-                        onPressed: () => updateQuantity(quantity + 1),
-                        icon: const Icon(Icons.add),
-                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        padding: EdgeInsets.zero,
+                        onPressed: selectedQuantity < currentStock ? () {
+                          selectedQuantity++;
+                          quantityController.text = selectedQuantity.toString();
+                          setState(() {});
+                        } : null,
+                        icon: const Icon(Icons.add_circle_outline),
+                        iconSize: 32,
+                        color: selectedQuantity < currentStock ? Colors.green : Colors.grey,
                       ),
                     ],
                   ),
@@ -206,8 +256,20 @@ class _InventoryPageState extends State<InventoryPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Total Amount: ₱${totalAmount.toStringAsFixed(2)}'),
-                        Text('Remaining Stock: ${currentStock - quantity}'),
+                        Text('Total Amount: ₱${totalAmount.toStringAsFixed(2)}',
+                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(height: 4),
+                        Text('Remaining Stock: ${selectedQuantity > 0 ? currentStock - selectedQuantity : currentStock}',
+                             style: TextStyle(
+                               color: selectedQuantity > 0 && (currentStock - selectedQuantity) < 7 ? Colors.red : Colors.green,
+                               fontWeight: FontWeight.bold,
+                             )),
+                        if (selectedQuantity == 0)
+                          const Text('⚠️ Please enter a valid quantity',
+                               style: TextStyle(color: Colors.orange, fontSize: 12)),
+                        if (selectedQuantity > currentStock)
+                          Text('⚠️ Cannot exceed stock limit ($currentStock)',
+                               style: const TextStyle(color: Colors.red, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -215,11 +277,36 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
+                  onPressed: () => Navigator.of(context).pop(null),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
+                  onPressed: () {
+                    if (selectedQuantity >= 1 && selectedQuantity <= currentStock) {
+                      Navigator.of(context).pop(selectedQuantity);
+                    } else {
+                      String errorMessage = '';
+                      if (selectedQuantity == 0) {
+                        errorMessage = 'Please enter a valid quantity';
+                      } else if (selectedQuantity < 0) {
+                        errorMessage = 'Negative quantities are not allowed';
+                      } else if (selectedQuantity > currentStock) {
+                        errorMessage = 'Cannot sell more than available stock ($currentStock)';
+                      }
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('❌ $errorMessage'),
+                          backgroundColor: Colors.red,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
                   child: const Text('Confirm Sale'),
                 ),
               ],
@@ -229,9 +316,12 @@ class _InventoryPageState extends State<InventoryPage> {
       },
     );
 
-    if (result == true) {
-      final quantityToSell = int.tryParse(quantityController.text) ?? 1;
-      await _processSale(product, quantityToSell);
+    // Clean up resources
+    quantityController.dispose();
+    focusNode.dispose();
+    
+    if (result != null && result > 0) {
+      await _processSale(product, result);
     }
   }
 
@@ -239,6 +329,33 @@ class _InventoryPageState extends State<InventoryPage> {
     try {
       final db = DatabaseHelper();
       final productId = product['id'] as int;
+      final productName = product['productName'] as String;
+      final unitPrice = (product['unitPrice'] as num).toDouble();
+      final totalAmount = unitPrice * quantityToSell;
+      
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Text('Processing sale...'),
+              ],
+            ),
+            backgroundColor: Colors.blue,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
       
       // Process the sale
       await db.sellProduct(
@@ -253,8 +370,24 @@ class _InventoryPageState extends State<InventoryPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully sold $quantityToSell ${product['productName']}'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('✅ Sale Successful!'),
+                Text('Sold $quantityToSell $productName'),
+                Text('Total: ₱${totalAmount.toStringAsFixed(2)}'),
+              ],
+            ),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
           ),
         );
       }
@@ -263,8 +396,23 @@ class _InventoryPageState extends State<InventoryPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('❌ Sale Failed'),
+                Text('Error: ${e.toString()}'),
+              ],
+            ),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
           ),
         );
       }
