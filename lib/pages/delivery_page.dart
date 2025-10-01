@@ -17,6 +17,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
   DateTime? selectedDateTime;
   bool isSelectionMode = false;
   Set<int> selectedDeliveries = {};
+  bool hasUnread = false;
 
   List<String> categories = [];
   List<Map<String, dynamic>> allProducts = [];
@@ -26,13 +27,108 @@ class _DeliveryPageState extends State<DeliveryPage> {
     super.initState();
     _refreshDeliveriesAndCheckOverdue();
     _loadCategoriesAndProducts();
+    _refreshUnread();
+  }
+
+  DateTime? _tryParseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+    if (value is int) {
+      try {
+        if (value > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(value);
+        if (value > 1000000000) return DateTime.fromMillisecondsSinceEpoch(value * 1000);
+        return DateTime.fromMillisecondsSinceEpoch(value);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 
   Future<void> _refreshDeliveriesAndCheckOverdue() async {
     final db = DatabaseHelper();
-    await db.checkOverdueDeliveries();
+    await db.checkOverdueDeliveries(overdueAfter: Duration.zero);
     deliveries = await db.fetchDeliveries();
     setState(() {});
+
+    // Show toast for the latest unread notification, then mark it read
+    final unread = await db.fetchNotifications(onlyUnread: true);
+    if (unread.isNotEmpty && mounted) {
+      final latest = unread.first;
+      final message = latest['message']?.toString() ?? 'New notification';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationPage()),
+              ).then((_) => _refreshUnread());
+            },
+          ),
+        ),
+      );
+      final id = latest['id'];
+      if (id is int) {
+        await db.markNotificationsReadByIds([id]);
+      }
+      await _refreshUnread();
+    }
+  }
+
+  Future<void> _refreshUnread() async {
+    final db = DatabaseHelper();
+    final v = await db.hasUnreadNotifications();
+    if (!mounted) return;
+    setState(() => hasUnread = v);
+  }
+
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: MediaQuery.of(context).size.width * 0.08, color: color),
+            const SizedBox(height: 6),
+            isActive
+                ? Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: color, width: 2),
+                      ),
+                    ),
+                    child: const Text(
+                      "Delivery",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadCategoriesAndProducts() async {
@@ -92,6 +188,38 @@ class _DeliveryPageState extends State<DeliveryPage> {
     await db.updateDeliveryStatus(id, "Delivered");
     await _refreshDeliveriesAndCheckOverdue();
   }
+
+   Future<void> _cancelDelivery(int id) async {
+  final db = DatabaseHelper();
+
+  // Get delivery details to restore quantity
+  final deliveries = await db.fetchDeliveries();
+  final delivery = deliveries.firstWhere((d) => d['id'] == id, orElse: () => {});
+
+  if (delivery.isNotEmpty) {
+    final productId = delivery['productId'] as int;
+    final quantity = delivery['quantity'] as int;
+
+    // Get current product quantity
+    final products = await db.fetchProducts();
+    final product = products.firstWhere((p) => p['id'] == productId, orElse: () => {});
+
+    if (product.isNotEmpty) {
+      final currentQty = product['quantity'] as int;
+      final restoredQty = currentQty + quantity;
+
+      // Restore quantity to product
+      await db.updateProduct(productId, {"quantity": restoredQty});
+    }
+  }
+
+  // Update delivery status to Cancelled
+  await db.updateDeliveryStatus(id, "Cancelled");
+  await _refreshDeliveriesAndCheckOverdue();
+}
+
+
+
 
   void _showAddDeliveryDialog() {
     final customerController = TextEditingController();
@@ -265,9 +393,19 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     "category": category,
                     "productId": selectedProduct!['id'],
                     "quantity": enteredQty,
-                    "createdAt": deliveryDate!.toIso8601String(),
+                    "createdAt": deliveryDate!.toString(),
                     "status": "Pending",
                   });
+
+                    // Immediately deduct from inventory
+                  final newQty = (selectedProduct!['quantity'] as int) - enteredQty;
+                  await DatabaseHelper().updateProduct(
+                    selectedProduct!['id'] as int,
+                    {"quantity": newQty < 0 ? 0 : newQty},
+                  );
+
+                  // Re-evaluate low stock notifications after deduction
+                  await DatabaseHelper().checkLowStockProducts();
 
                   await _refreshDeliveriesAndCheckOverdue();
                   Navigator.pop(context);
@@ -307,8 +445,12 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            Text(
-              "Delivery Date: ${DateTime.parse(delivery['createdAt']).toLocal()}",
+            Builder(
+              builder: (_) {
+                final dt = _tryParseDate(delivery['createdAt']);
+                final dateText = dt != null ? dt.toLocal().toString() : (delivery['createdAt']?.toString() ?? 'N/A');
+                return Text("Delivery Date: $dateText");
+              },
             ),
           ],
         ),
@@ -317,6 +459,14 @@ class _DeliveryPageState extends State<DeliveryPage> {
             onPressed: () => Navigator.pop(context),
             child: const Text("Close"),
           ),
+          if (delivery['status'] != 'Delivered' && delivery['status'] != 'Cancelled')
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog first
+                await _cancelDelivery(delivery['id']);
+              },
+              child: const Text("Cancel Delivery"),
+            ),
         ],
       ),
     );
@@ -331,25 +481,39 @@ class _DeliveryPageState extends State<DeliveryPage> {
       filteredDeliveries = List.from(deliveries);
     } else {
       filteredDeliveries = deliveries.where((delivery) {
-        final d = DateTime.parse(delivery["createdAt"]);
+        final d = _tryParseDate(delivery["createdAt"]);
+        if (d == null) return false;
         return d.year == selectedDateTime!.year &&
             d.month == selectedDateTime!.month &&
             d.day == selectedDateTime!.day;
       }).toList();
     }
 
-    filteredDeliveries.sort((a, b) {
-      if ((a["status"] ?? "") == "Delivered" &&
-          (b["status"] ?? "") != "Delivered") {
-        return 1;
-      } else if ((b["status"] ?? "") == "Delivered" &&
-          (a["status"] ?? "") != "Delivered") {
-        return -1;
-      }
-      final dateA = DateTime.parse(a["createdAt"]);
-      final dateB = DateTime.parse(b["createdAt"]);
-      return dateA.compareTo(dateB);
-    });
+        filteredDeliveries.sort((a, b) {
+    final statusA = (a["status"] ?? "").toString().toLowerCase();
+    final statusB = (b["status"] ?? "").toString().toLowerCase();
+
+    //  Push Overdue to the top
+    if (statusA == "overdue" && statusB != "overdue") return -1;
+    if (statusB == "overdue" && statusA != "overdue") return 1;
+
+    //  Push Delivered and Cancelled to the bottom
+    final isDoneA = statusA == "delivered" || statusA == "cancelled";
+    final isDoneB = statusB == "delivered" || statusB == "cancelled";
+
+    if (isDoneA && !isDoneB) return 1;
+    if (!isDoneA && isDoneB) return -1;
+
+    //  Sort by date (ascending)
+    final dateA = _tryParseDate(a["createdAt"]);
+    final dateB = _tryParseDate(b["createdAt"]);
+    if (dateA == null && dateB == null) return 0;
+    if (dateA == null) return 1;
+    if (dateB == null) return -1;
+    return dateA.compareTo(dateB);
+  });
+
+
 
     return Scaffold(
       body: Column(
@@ -399,18 +563,36 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 ),
                 Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications),
-                      color: Colors.blue,
-                      iconSize: 24,
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationPage(),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications),
+                          color: Colors.blue,
+                          iconSize: 24,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const NotificationPage(),
+                              ),
+                            ).then((_) => _refreshUnread());
+                          },
+                        ),
+                        if (hasUnread)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
                           ),
-                        );
-                      },
+                      ],
                     ),
                     IconButton(
                       icon: const Icon(Icons.settings),
@@ -470,6 +652,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                         label: const Text("Delete"),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -526,7 +709,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
               itemBuilder: (context, index) {
                 final delivery = filteredDeliveries[index];
                 final isSelected = selectedDeliveries.contains(delivery["id"]);
-                final isDelivered = (delivery["status"] ?? "") == "Delivered";
+                final status = (delivery["status"] ?? "").toString().toLowerCase();
+                final isDelivered = status == "delivered";
+                final isCancelled = status == "cancelled";
                 return Card(
                   child: ListTile(
                     leading: isSelectionMode
@@ -555,8 +740,12 @@ class _DeliveryPageState extends State<DeliveryPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          "Date: ${DateTime.parse(delivery['createdAt']).toLocal()}",
+                        Builder(
+                          builder: (_) {
+                            final dt = _tryParseDate(delivery['createdAt']);
+                            final text = dt != null ? dt.toString() : (delivery['createdAt']?.toString() ?? 'N/A');
+                            return Text("Date: $text");
+                          },
                         ),
                       ],
                     ),
@@ -577,8 +766,8 @@ class _DeliveryPageState extends State<DeliveryPage> {
                                 style: TextStyle(fontSize: 10),
                               ),
                             ),
-                            if (!isDelivered) const SizedBox(width: 4),
-                            if (!isDelivered)
+                            if (!isDelivered && !isCancelled) const SizedBox(width: 4),
+                            if (!isDelivered && !isCancelled)
                               ElevatedButton(
                                 onPressed: () => _markAsDone(delivery["id"]),
                                 style: ElevatedButton.styleFrom(
@@ -595,6 +784,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                           ],
                         )
                       : null,
+
 
                   ),
                 );
@@ -614,74 +804,38 @@ class _DeliveryPageState extends State<DeliveryPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const InventoryPage(),
-                        ),
-                      );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.inventory,
-                          size: screenWidth * 0.08,
-                          color: Colors.blue,
-                        ),
-                        const Text(
-                          "Inventory",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
+                _buildNavItem(
+                  icon: Icons.inventory,
+                  label: "Inventory",
+                  isActive: false,
+                  color: Colors.blue,
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const InventoryPage(),
+                      ),
+                    );
+                  },
                 ),
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SalesPage()),
-                      );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.bar_chart,
-                          size: screenWidth * 0.08,
-                          color: Colors.green,
-                        ),
-                        const Text(
-                          "Sales",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
+                _buildNavItem(
+                  icon: Icons.bar_chart,
+                  label: "Sales",
+                  isActive: false,
+                  color: Colors.green,
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SalesPage()),
+                    );
+                  },
                 ),
-                Expanded(
-                  child: InkWell(
-                    onTap: () {},
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.local_shipping,
-                          size: screenWidth * 0.08,
-                          color: Colors.orange,
-                        ),
-                        const Text(
-                          "Delivery",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
+                _buildNavItem(
+                  icon: Icons.local_shipping,
+                  label: "Delivery",
+                  isActive: true,
+                  color: Colors.orange,
+                  onTap: () {},
                 ),
               ],
             ),
