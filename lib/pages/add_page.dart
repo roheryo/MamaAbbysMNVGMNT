@@ -16,11 +16,19 @@ class _AddPage extends State<AddPage> {
   final List<String> categories = [
     'Pork',
     'Virginia Products',
-    'Purefoods',
+    'Purefoods Products',
     'Big Shot Products',
     'Chicken',
     'Beefies Products',
-    'Others'
+    'Siomai',
+    'Nuggets',
+    'Squidballs',
+    'Tj Products',
+    'Beef',
+    'Champion Products',
+    'Tocino',
+    'Longganisa',
+    'Others',
   ];
 
   final TextEditingController productNameController = TextEditingController();

@@ -23,15 +23,23 @@ class _InventoryPageState extends State<InventoryPage> {
     'All',
     'Pork',
     'Virginia Products',
-    'Purefoods',
+    'Purefoods Products',
     'Big Shot Products',
     'Chicken',
     'Beefies Products',
+    'Siomai',
+    'Nuggets',
+    'Squidballs',
+    'Tj Products',
+    'Beef',
+    'Champion Products',
+    'Tocino',
+    'Longganisa',
     'Others',
   ];
 
-  List<Map<String, dynamic>> allProducts = []; // master list
-  List<Map<String, dynamic>> products = []; // filtered/display list
+  List<Map<String, dynamic>> allProducts = [];
+  List<Map<String, dynamic>> products = [];
 
   @override
   void initState() {
@@ -40,16 +48,30 @@ class _InventoryPageState extends State<InventoryPage> {
     _refreshUnread();
   }
 
+  void _sortProducts(List<Map<String, dynamic>> list) {
+    list.sort((a, b) {
+      final qtyA = a['quantity'] as int;
+      final qtyB = b['quantity'] as int;
+      final aLow = qtyA < 7;
+      final bLow = qtyB < 7;
+
+      if (aLow && !bLow) return -1;
+      if (!aLow && bLow) return 1;
+      return 0;
+    });
+  }
+
   Future<void> _loadProducts() async {
     final db = DatabaseHelper();
     await db.checkLowStockProducts();
     final data = await db.fetchProducts();
+
     setState(() {
       allProducts = data;
-      products = List.from(allProducts); // display copy
+      products = List.from(allProducts);
+      _sortProducts(products);
     });
 
-    // Show toast for the latest unread notification, then mark it read
     final unread = await db.fetchNotifications(onlyUnread: true);
     if (unread.isNotEmpty && mounted) {
       final latest = unread.first;
@@ -87,17 +109,13 @@ class _InventoryPageState extends State<InventoryPage> {
     if (selectedProducts.isEmpty) return;
 
     final db = DatabaseHelper();
-
-    // Collect IDs to delete
-    List<int> idsToDelete = selectedProducts
-        .map((i) => products[i]['id'] as int)
-        .toList();
+    List<int> idsToDelete =
+        selectedProducts.map((i) => products[i]['id'] as int).toList();
 
     for (var id in idsToDelete) {
       await db.deleteProduct(id);
     }
 
-    // Reload products after deletion
     await _loadProducts();
 
     setState(() {
@@ -160,6 +178,7 @@ class _InventoryPageState extends State<InventoryPage> {
             p['category'].toString() == selectedCategory;
         return nameMatch && categoryMatch;
       }).toList();
+      _sortProducts(products);
     });
   }
 
@@ -171,6 +190,7 @@ class _InventoryPageState extends State<InventoryPage> {
         return selectedCategory == 'All' ||
             p['category'].toString() == selectedCategory;
       }).toList();
+      _sortProducts(products);
     });
   }
 
@@ -181,7 +201,6 @@ class _InventoryPageState extends State<InventoryPage> {
     return Scaffold(
       body: Column(
         children: [
-          // ===== Header =====
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(
@@ -280,10 +299,7 @@ class _InventoryPageState extends State<InventoryPage> {
               ],
             ),
           ),
-
           const SizedBox(height: 20),
-
-          // ===== Search Box =====
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
@@ -304,10 +320,7 @@ class _InventoryPageState extends State<InventoryPage> {
               onChanged: _filterProducts,
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // ===== Category Filter =====
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -331,136 +344,133 @@ class _InventoryPageState extends State<InventoryPage> {
               ],
             ),
           ),
-
           const SizedBox(height: 8),
-
-          // ===== Buttons Row =====
-Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 16),
-  child: Row(
-    children: [
-      ElevatedButton(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddPage()),
-          );
-          _loadProducts(); // refresh after coming back
-        },
-        child: const Text("Add"),
-      ),
-      const Spacer(),
-      ElevatedButton(
-        onPressed: () {
-          setState(() {
-            isSelectionMode = !isSelectionMode;
-            selectedProducts.clear();
-          });
-        },
-        child: Text(isSelectionMode ? "Cancel" : "Select"),
-      ),
-      const SizedBox(width: 8),
-      if (isSelectionMode && selectedProducts.isNotEmpty)
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-          ),
-          onPressed: _deleteSelected,
-          child: const Text("Delete"),
-        ),
-    ],
-  ),
-),
-
-// Removed SizedBox(height: 8) here
-
-// ===== Products List =====
-Expanded(
-  child: Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: products.isEmpty
-        ? const Center(child: Text("No products found."))
-        : ListView.builder(
-            padding: const EdgeInsets.fromLTRB(0, 4, 0, 8), // tighter top padding
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final product = products[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 4), // tighter spacing
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                ElevatedButton(
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AddPage()),
+                    );
+                    _loadProducts();
+                  },
+                  child: const Text("Add"),
                 ),
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      if (isSelectionMode)
-                        Checkbox(
-                          value: selectedProducts.contains(index),
-                          onChanged: (value) {
-                            setState(() {
-                              if (value == true) {
-                                selectedProducts.add(index);
-                              } else {
-                                selectedProducts.remove(index);
-                              }
-                            });
-                          },
-                        ),
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade500),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.image, color: Colors.grey),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product['productName'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 4), // slightly smaller spacing
-                            Text(
-                              "Stock: ${product['quantity']} | Price: ₱${product['unitPrice']}",
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: () {
-                          print("Sell ${product['productName']}");
-                        },
-                        child: const Text("Sell"),
-                      ),
-                    ],
+                const Spacer(),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      isSelectionMode = !isSelectionMode;
+                      selectedProducts.clear();
+                    });
+                  },
+                  child: Text(isSelectionMode ? "Cancel" : "Select"),
+                ),
+                const SizedBox(width: 8),
+                if (isSelectionMode && selectedProducts.isNotEmpty)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _deleteSelected,
+                    child: const Text("Delete"),
                   ),
-                ),
-              );
-            },
+              ],
+            ),
           ),
-  ),
-),
-
-
-          // ===== Bottom Navigation =====
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: products.isEmpty
+                  ? const Center(child: Text("No products found."))
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
+                      itemCount: products.length,
+                      itemBuilder: (context, index) {
+                        final product = products[index];
+                        final qty = product['quantity'] as int;
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          elevation: 2,
+                          color: qty < 7 ? Colors.red.shade100 : Colors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                if (isSelectionMode)
+                                  Checkbox(
+                                    value: selectedProducts.contains(index),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        if (value == true) {
+                                          selectedProducts.add(index);
+                                        } else {
+                                          selectedProducts.remove(index);
+                                        }
+                                      });
+                                    },
+                                  ),
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade300,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border:
+                                        Border.all(color: Colors.grey.shade500),
+                                  ),
+                                  child: const Center(
+                                    child:
+                                        Icon(Icons.image, color: Colors.grey),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        product['productName'],
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "Stock: ${product['quantity']} | Price: ₱${product['unitPrice']}",
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    print(
+                                        "Sell ${product['productName']}");
+                                  },
+                                  child: const Text("Sell"),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border(top: BorderSide(color: Colors.grey.shade300)),
