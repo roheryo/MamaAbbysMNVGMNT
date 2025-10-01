@@ -20,13 +20,13 @@ Future<void> main() async {
   };
 
   try {
-    // ✅ Initialize the database
+    //  Initialize the database
     await DatabaseHelper().database;
 
-    // ✅ Print the database path so you know where app.db is stored
+    
     await DatabaseHelper().printDbPath();
 
-    // ✅ Trigger notifications (low stock + overdue deliveries immediately)
+    //  Trigger notifications (low stock + overdue deliveries immediately)
     await DatabaseHelper().triggerAllNotifications();
 
     runApp(const MyApp());

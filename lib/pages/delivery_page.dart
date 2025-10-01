@@ -49,37 +49,50 @@ class _DeliveryPageState extends State<DeliveryPage> {
   }
 
   Future<void> _refreshDeliveriesAndCheckOverdue() async {
-    final db = DatabaseHelper();
-    await db.checkOverdueDeliveries(overdueAfter: Duration.zero);
-    deliveries = await db.fetchDeliveries();
-    setState(() {});
+  final db = DatabaseHelper();
+  await db.checkOverdueDeliveries(overdueAfter: Duration.zero);
+  deliveries = await db.fetchDeliveries();
+  setState(() {});
 
-    // Show toast for the latest unread notification, then mark it read
-    final unread = await db.fetchNotifications(onlyUnread: true);
-    if (unread.isNotEmpty && mounted) {
-      final latest = unread.first;
-      final message = latest['message']?.toString() ?? 'New notification';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          action: SnackBarAction(
-            label: 'View',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NotificationPage()),
-              ).then((_) => _refreshUnread());
-            },
+  // Show toast only for overdue delivery notifications
+  final unread = await db.fetchNotifications(onlyUnread: true);
+  if (unread.isNotEmpty && mounted) {
+    final latest = unread.first;
+    final message = latest['message']?.toString() ?? '';
+
+    // Check if the notification matches the overdue delivery format
+    final regex = RegExp(r'Your Delivery For (.+) is overdue!', caseSensitive: false);
+    final match = regex.firstMatch(message);
+
+    if (match != null) {
+      final customerName = match.group(1);
+      if (customerName != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Your Delivery For $customerName is overdue!"),
+            action: SnackBarAction(
+              label: 'View',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationPage()),
+                ).then((_) => _refreshUnread());
+              },
+            ),
           ),
-        ),
-      );
-      final id = latest['id'];
-      if (id is int) {
-        await db.markNotificationsReadByIds([id]);
+        );
+
+        // Mark this notification as read
+        final id = latest['id'];
+        if (id is int) {
+          await db.markNotificationsReadByIds([id]);
+        }
+        await _refreshUnread();
       }
-      await _refreshUnread();
     }
   }
+}
+
 
   Future<void> _refreshUnread() async {
     final db = DatabaseHelper();
@@ -300,7 +313,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     },
                   ),
                   const SizedBox(height: 8),
-                  // Product Dropdown
+                  
                   DropdownButtonFormField<Map<String, dynamic>>(
                     value: selectedProduct,
                     decoration: const InputDecoration(
