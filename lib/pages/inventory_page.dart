@@ -124,6 +124,153 @@ class _InventoryPageState extends State<InventoryPage> {
     });
   }
 
+  Future<void> _showSellModal(Map<String, dynamic> product) async {
+    final TextEditingController quantityController = TextEditingController();
+    final int currentStock = product['quantity'] as int;
+    final double unitPrice = (product['unitPrice'] as num).toDouble();
+    final String productName = product['productName'] as String;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            int quantity = 1;
+            double totalAmount = unitPrice;
+
+            void updateQuantity(int newQuantity) {
+              if (newQuantity >= 1 && newQuantity <= currentStock) {
+                setModalState(() {
+                  quantity = newQuantity;
+                  totalAmount = unitPrice * quantity;
+                });
+                quantityController.text = quantity.toString();
+              }
+            }
+
+            return AlertDialog(
+              title: Text('Sell $productName'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Current Stock: $currentStock'),
+                  Text('Unit Price: ₱${unitPrice.toStringAsFixed(2)}'),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text('Quantity: '),
+                      IconButton(
+                        onPressed: () => updateQuantity(quantity - 1),
+                        icon: const Icon(Icons.remove),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        padding: EdgeInsets.zero,
+                      ),
+                      SizedBox(
+                        width: 60,
+                        child: TextField(
+                          controller: quantityController,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          onChanged: (value) {
+                            final newQuantity = int.tryParse(value) ?? 1;
+                            if (newQuantity >= 1 && newQuantity <= currentStock) {
+                              setModalState(() {
+                                quantity = newQuantity;
+                                totalAmount = unitPrice * quantity;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => updateQuantity(quantity + 1),
+                        icon: const Icon(Icons.add),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Total Amount: ₱${totalAmount.toStringAsFixed(2)}'),
+                        Text('Remaining Stock: ${currentStock - quantity}'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Confirm Sale'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true) {
+      final quantityToSell = int.tryParse(quantityController.text) ?? 1;
+      await _processSale(product, quantityToSell);
+    }
+  }
+
+  Future<void> _processSale(Map<String, dynamic> product, int quantityToSell) async {
+    try {
+      final db = DatabaseHelper();
+      final productId = product['id'] as int;
+      
+      // Process the sale
+      await db.sellProduct(
+        productId: productId,
+        quantityToSell: quantityToSell,
+      );
+      
+      // Refresh the products list
+      await _loadProducts();
+      
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully sold $quantityToSell ${product['productName']}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildNavItem({
     required IconData icon,
     required String label,
@@ -455,8 +602,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                 const SizedBox(width: 12),
                                 ElevatedButton(
                                   onPressed: () {
-                                    print(
-                                        "Sell ${product['productName']}");
+                                    _showSellModal(product);
                                   },
                                   child: const Text("Sell"),
                                 ),

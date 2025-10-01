@@ -24,6 +24,10 @@ class _SalesPageState extends State<SalesPage> {
   DateTime? selectedWeek; // week start
   DateTime? selectedMonth; // month picker
 
+  // Track sales data
+  double totalSales = 0.0;
+  bool isLoading = false;
+
   Future<void> _pickTodayDate(BuildContext context) async {
     final DateTime now = DateTime.now();
     final DateTime? picked = await showDatePicker(
@@ -36,6 +40,7 @@ class _SalesPageState extends State<SalesPage> {
       setState(() {
         selectedDate = picked;
       });
+      _fetchSalesData();
     }
   }
 
@@ -60,6 +65,7 @@ class _SalesPageState extends State<SalesPage> {
       print(
         "Selected Week: ${DateFormat('MMM dd').format(startOfWeek)} - ${DateFormat('MMM dd').format(endOfWeek)}",
       );
+      _fetchSalesData();
     }
   }
 
@@ -78,6 +84,7 @@ class _SalesPageState extends State<SalesPage> {
       print(
         "Selected Month: ${DateFormat('MMMM yyyy').format(selectedMonth!)}",
       );
+      _fetchSalesData();
     }
   }
 
@@ -87,10 +94,71 @@ class _SalesPageState extends State<SalesPage> {
     setState(() => hasUnread = v);
   }
 
+  Future<void> _fetchSalesData() async {
+    setState(() => isLoading = true);
+    
+    try {
+      double sales = 0.0;
+      
+      switch (selectedFilter) {
+        case "Today":
+          if (selectedDate != null) {
+            final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate!);
+            sales = await DatabaseHelper().getTotalSales(startDate: dateStr, endDate: dateStr);
+          } else {
+            final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+            sales = await DatabaseHelper().getTotalSales(startDate: today, endDate: today);
+          }
+          break;
+          
+        case "Weekly":
+          if (selectedWeek != null) {
+            final startDate = DateFormat('yyyy-MM-dd').format(selectedWeek!);
+            final endDate = DateFormat('yyyy-MM-dd').format(selectedWeek!.add(const Duration(days: 6)));
+            sales = await DatabaseHelper().getTotalSales(startDate: startDate, endDate: endDate);
+          }
+          break;
+          
+        case "Monthly":
+          if (selectedMonth != null) {
+            final startDate = DateFormat('yyyy-MM-dd').format(selectedMonth!);
+            final endDate = DateFormat('yyyy-MM-dd').format(
+              DateTime(selectedMonth!.year, selectedMonth!.month + 1, 0)
+            );
+            sales = await DatabaseHelper().getTotalSales(startDate: startDate, endDate: endDate);
+          }
+          break;
+      }
+      
+      if (mounted) {
+        setState(() {
+          totalSales = sales;
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          totalSales = 0.0;
+          isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _refreshUnread();
+    _fetchSalesData();
+    // Uncomment the line below to create sample data for testing
+    // _createSampleData();
+  }
+
+  // Helper method to create sample data for testing (uncomment in initState to use)
+  Future<void> _createSampleData() async {
+    await DatabaseHelper().createSampleSalesData();
+    _fetchSalesData();
   }
 
   // ===== Helper Widget for Bottom Navigation =====
@@ -281,6 +349,9 @@ class _SalesPageState extends State<SalesPage> {
                         } else if (filter == "Monthly") {
                           await _pickMonthlyDate(context);
                         }
+                        
+                        // Fetch sales data after filter change
+                        _fetchSalesData();
                       },
                       child: Text(
                         filter,
@@ -306,24 +377,44 @@ class _SalesPageState extends State<SalesPage> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.blue, width: 1),
               ),
-              child: Text(
-                selectedFilter == "Today" && selectedDate != null
-                    ? "Sales on ${DateFormat('MMM dd, yyyy').format(selectedDate!)}: 0"
-                    : selectedFilter == "Weekly" && selectedWeek != null
-                    ? "Sales for week of ${DateFormat('MMM dd').format(selectedWeek!)}: 0"
-                    : selectedFilter == "Monthly" && selectedMonth != null
-                    ? "Sales for ${DateFormat('MMMM yyyy').format(selectedMonth!)}: 0"
-                    : selectedFilter == "Today"
-                    ? "Total Daily Sales: 0"
-                    : selectedFilter == "Weekly"
-                    ? "Total Weekly Sales: 0"
-                    : "Total Monthly Sales: 0",
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
+              child: isLoading
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          "Loading sales data...",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      selectedFilter == "Today" && selectedDate != null
+                          ? "Sales on ${DateFormat('MMM dd, yyyy').format(selectedDate!)}: ₱${totalSales.toStringAsFixed(2)}"
+                          : selectedFilter == "Weekly" && selectedWeek != null
+                          ? "Sales for week of ${DateFormat('MMM dd').format(selectedWeek!)}: ₱${totalSales.toStringAsFixed(2)}"
+                          : selectedFilter == "Monthly" && selectedMonth != null
+                          ? "Sales for ${DateFormat('MMMM yyyy').format(selectedMonth!)}: ₱${totalSales.toStringAsFixed(2)}"
+                          : selectedFilter == "Today"
+                          ? "Total Daily Sales: ₱${totalSales.toStringAsFixed(2)}"
+                          : selectedFilter == "Weekly"
+                          ? "Total Weekly Sales: ₱${totalSales.toStringAsFixed(2)}"
+                          : "Total Monthly Sales: ₱${totalSales.toStringAsFixed(2)}",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
             ),
           ),
 
