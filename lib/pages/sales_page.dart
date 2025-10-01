@@ -27,6 +27,7 @@ class _SalesPageState extends State<SalesPage> {
   // Track sales data
   double totalSales = 0.0;
   bool isLoading = false;
+  List<Map<String, dynamic>> transactions = [];
 
   Future<void> _pickTodayDate(BuildContext context) async {
     final DateTime now = DateTime.now();
@@ -99,15 +100,21 @@ class _SalesPageState extends State<SalesPage> {
     
     try {
       double sales = 0.0;
+      String? startDateStr;
+      String? endDateStr;
       
       switch (selectedFilter) {
         case "Today":
           if (selectedDate != null) {
             final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate!);
             sales = await DatabaseHelper().getTotalSales(startDate: dateStr, endDate: dateStr);
+            startDateStr = dateStr;
+            endDateStr = dateStr;
           } else {
             final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
             sales = await DatabaseHelper().getTotalSales(startDate: today, endDate: today);
+            startDateStr = today;
+            endDateStr = today;
           }
           break;
           
@@ -116,6 +123,8 @@ class _SalesPageState extends State<SalesPage> {
             final startDate = DateFormat('yyyy-MM-dd').format(selectedWeek!);
             final endDate = DateFormat('yyyy-MM-dd').format(selectedWeek!.add(const Duration(days: 6)));
             sales = await DatabaseHelper().getTotalSales(startDate: startDate, endDate: endDate);
+            startDateStr = startDate;
+            endDateStr = endDate;
           }
           break;
           
@@ -126,13 +135,25 @@ class _SalesPageState extends State<SalesPage> {
               DateTime(selectedMonth!.year, selectedMonth!.month + 1, 0)
             );
             sales = await DatabaseHelper().getTotalSales(startDate: startDate, endDate: endDate);
+            startDateStr = startDate;
+            endDateStr = endDate;
           }
           break;
       }
       
+      // Fetch detailed transactions for the selected range
+      List<Map<String, dynamic>> txns = [];
+      if (startDateStr != null && endDateStr != null) {
+        txns = await DatabaseHelper().fetchSalesTransactionsWithCategory(
+          startDate: startDateStr,
+          endDate: endDateStr,
+        );
+      }
+
       if (mounted) {
         setState(() {
           totalSales = sales;
+          transactions = txns;
           isLoading = false;
         });
       }
@@ -140,6 +161,7 @@ class _SalesPageState extends State<SalesPage> {
       if (mounted) {
         setState(() {
           totalSales = 0.0;
+          transactions = [];
           isLoading = false;
         });
       }
@@ -418,7 +440,89 @@ class _SalesPageState extends State<SalesPage> {
             ),
           ),
 
-          const Spacer(),
+          const SizedBox(height: 12),
+
+          // Transactions header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                selectedFilter == "Today" && (selectedDate != null)
+                    ? "Transactions on ${DateFormat('MMMM dd, yyyy').format(selectedDate!)}"
+                    : selectedFilter == "Today"
+                    ? "Transactions on ${DateFormat('MMMM dd, yyyy').format(DateTime.now())}"
+                    : selectedFilter == "Weekly" && selectedWeek != null
+                    ? "Transactions for week of ${DateFormat('MMM dd').format(selectedWeek!)}"
+                    : selectedFilter == "Monthly" && selectedMonth != null
+                    ? "Transactions for ${DateFormat('MMMM yyyy').format(selectedMonth!)}"
+                    : "Transactions",
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Transactions list
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                  : transactions.isEmpty
+                      ? const Center(
+                          child: Text(
+                            "No transactions found.",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: transactions.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final t = transactions[index];
+                            final name = (t['productName'] ?? '').toString();
+                            final category = (t['category'] ?? 'Unknown').toString();
+                            final qty = (t['quantity'] as num?)?.toInt() ?? 0;
+                            final total = (t['totalAmount'] as num?)?.toDouble() ?? 0.0;
+                            final saleDateRaw = t['saleDate']?.toString();
+                            DateTime? saleDt = DateTime.tryParse(saleDateRaw ?? '');
+                            final dateLabel = saleDt != null
+                                ? DateFormat('MMM dd, yyyy').format(saleDt)
+                                : '';
+
+                            return ListTile(
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                              title: Text(
+                                name,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Text(
+                                dateLabel.isNotEmpty
+                                    ? "$category • $dateLabel"
+                                    : category,
+                              ),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text("x$qty"),
+                                  Text(
+                                    "₱${total.toStringAsFixed(2)}",
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ),
 
           // ===== Bottom Navigation =====
           Container(
