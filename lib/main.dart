@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter_applicationtest/pages/add_page.dart';
 import 'package:flutter_applicationtest/pages/editprices_page.dart';
 import 'package:flutter_applicationtest/pages/inventory_page.dart';
@@ -11,6 +13,12 @@ import 'database_helper.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize sqflite for desktop (Windows/Linux/macOS)
+  if (!Platform.isAndroid && !Platform.isIOS) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
