@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:flutter_applicationtest/pages/add_page.dart';
 import 'package:flutter_applicationtest/pages/notification_page.dart';
 import 'package:flutter_applicationtest/pages/sales_page.dart';
@@ -137,7 +138,7 @@ class _InventoryPageState extends State<InventoryPage> {
     final result = await showDialog<int>(
       context: context,
       builder: (BuildContext context) {
-        return StatefulBuilder(
+        return StatefulBuilder( 
           builder: (context, setState) {
             double totalAmount = unitPrice * selectedQuantity;
 
@@ -712,20 +713,48 @@ class _InventoryPageState extends State<InventoryPage> {
                                       });
                                     },
                                   ),
-                                Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade300,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border:
-                                        Border.all(color: Colors.grey.shade500),
-                                  ),
-                                  child: const Center(
-                                    child:
-                                        Icon(Icons.image, color: Colors.grey),
-                                  ),
-                                ),
+                                // Product thumbnail (show saved image when available)
+                                Builder(builder: (_) {
+                                  final String? imagePath = product['imagePath'] as String?;
+                                  final bool hasImage = imagePath != null && imagePath.isNotEmpty && File(imagePath).existsSync();
+                                  if (hasImage) {
+                                    return ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        File(imagePath!),
+                                        width: 60,
+                                        height: 60,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            width: 60,
+                                            height: 60,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade300,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.grey.shade500),
+                                            ),
+                                            child: const Center(
+                                              child: Icon(Icons.image, color: Colors.grey),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    );
+                                  }
+                                  return Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade300,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.grey.shade500),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(Icons.image, color: Colors.grey),
+                                    ),
+                                  );
+                                }),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(

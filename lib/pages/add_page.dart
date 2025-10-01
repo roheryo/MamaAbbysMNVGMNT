@@ -13,25 +13,10 @@ class AddPage extends StatefulWidget {
 
 class _AddPage extends State<AddPage> {
   String selectedCategory = 'Pork';
-  final List<String> categories = [
-    'Pork',
-    'Virginia Products',
-    'Purefoods Products',
-    'Big Shot Products',
-    'Chicken',
-    'Beefies Products',
-    'Siomai',
-    'Nuggets',
-    'Squidballs',
-    'Tj Products',
-    'Beef',
-    'Champion Products',
-    'Tocino',
-    'Longganisa',
-    'Others',
-  ];
+  List<String> categories = [];
+  String? selectedProductName;
+  List<String> productOptions = [];
 
-  final TextEditingController productNameController = TextEditingController();
   final TextEditingController quantityController = TextEditingController();
   final TextEditingController unitPriceController = TextEditingController();
 
@@ -54,27 +39,24 @@ class _AddPage extends State<AddPage> {
 
   // Save Product
   Future<void> _saveProduct() async {
-    String productName = productNameController.text.trim();
+    String? productName = selectedProductName;
     String quantity = quantityController.text.trim();
     String unitPrice = unitPriceController.text.trim();
 
-    if (productName.isEmpty || quantity.isEmpty || unitPrice.isEmpty) {
+    if (productName == null || productName.isEmpty || quantity.isEmpty || unitPrice.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all fields")),
       );
       return;
     }
 
-    Map<String, dynamic> product = {
-      'productName': productName,
-      'category': selectedCategory,
-      'quantity': int.parse(quantity),
-      'unitPrice': double.parse(unitPrice),
-      'imagePath': _selectedImage?.path, // Save image path
-      'createdAt': DateTime.now().toIso8601String(),
-    };
-
-    await dbHelper.insertProduct(product);
+    await dbHelper.insertOrAccumulateProduct(
+      productName: productName,
+      category: selectedCategory,
+      quantity: int.parse(quantity),
+      unitPrice: double.parse(unitPrice),
+      imagePath: _selectedImage?.path,
+    );
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Product added successfully!")),
@@ -95,6 +77,17 @@ class _AddPage extends State<AddPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Ensure categories are initialized once (guard if hot-reload)
+    if (categories.isEmpty) {
+      categories = dbHelper.catalogCategories;
+      if (categories.isNotEmpty && !categories.contains(selectedCategory)) {
+        selectedCategory = categories.first;
+      }
+      productOptions = dbHelper.getProductsForCategory(selectedCategory);
+      if (productOptions.isNotEmpty) {
+        selectedProductName ??= productOptions.first;
+      }
+    }
     return Scaffold(
       body: Column(
         children: [
@@ -165,6 +158,8 @@ class _AddPage extends State<AddPage> {
                         if (newValue != null) {
                           setState(() {
                             selectedCategory = newValue;
+                            productOptions = dbHelper.getProductsForCategory(selectedCategory);
+                            selectedProductName = productOptions.isNotEmpty ? productOptions.first : null;
                           });
                         }
                       },
@@ -172,21 +167,25 @@ class _AddPage extends State<AddPage> {
 
                     const SizedBox(height: 16),
 
-                    // Product Name
+                    // Product Name (dependent dropdown)
                     const Text("Product Name",
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    TextField(
-                      controller: productNameController,
-                      decoration: InputDecoration(
-                        hintText: "Enter product name",
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
+                    DropdownButton<String>(
+                      value: selectedProductName,
+                      isExpanded: true,
+                      hint: const Text("Select product"),
+                      items: productOptions.map((String product) {
+                        return DropdownMenuItem<String>(
+                          value: product,
+                          child: Text(product),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedProductName = newValue;
+                        });
+                      },
                     ),
 
                     const SizedBox(height: 16),

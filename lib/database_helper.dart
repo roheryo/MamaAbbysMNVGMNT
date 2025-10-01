@@ -10,6 +10,82 @@ class DatabaseHelper {
 
   static Database? _db;
 
+  // ===================== Static Product Catalog =====================
+  // Centralized catalog of product names grouped by category
+  static const Map<String, List<String>> productCatalog = {
+    'Virginia Products': [
+      'Virginia Classic 250g',
+      'Virginia Chicken Hotdog 250g (Blue)',
+      'Virginia Classic 500g',
+      'Virginia Chicken Hotdog w/ Cheese (Jumbo)',
+      'Virginia Classic 1kilo',
+      'Virginia w/ Cheese 1 kilo',
+      'Chicken Longganisa',
+    ],
+    'Big Shot Products': [
+      'Big shot ball 500g',
+      'Big shot classic 1 kilo',
+      'Big shot w/ Cheese 1 kilo',
+    ],
+    'Beefies Products': [
+      'Beefies Classic 250g',
+      'Beefies w/ Cheese 250g',
+      'Beefies Classic 1 kilo',
+      'Beefies w/ Cheese 1 kilo',
+    ],
+    'Purefoods': [
+      'TJ Classic 1 kilo',
+      'TJ Cheesedog 1 kilo',
+      'TJ Classic 250g',
+      'Star Nuggets',
+      'Crazy Cut Nuggets',
+      'Chicken Breast Nuggets',
+      'TJ Hotdog w/ Cheese 250g',
+      'TJ Balls 500g',
+      'TJ Chicken Jumbo',
+      'TJ Cocktail',
+      'TJ Cheesedog (Small)',
+      'TJ Classic (Small)',
+    ],
+    'Chicken': [
+      'Chicken Roll',
+      'Chicken Loaf',
+      'Chicken Ham',
+      'Chicken Tocino',
+      'Champion Chicken Hotdog',
+      'Chicken Lumpia',
+      'Chicken Chorizo',
+    ],
+    'Pork': [
+      'Pork Chop',
+      'Pork Pata',
+      'Pork Belly',
+      'Hamleg/Square Cut',
+      'Pork Longganisa',
+      'Pork Tocino',
+      'Pork Chorizo',
+      'Pork Lumpia',
+    ],
+    'Others': [
+      'Burger Patty',
+      'Ganada Sweet Ham',
+      'Siomai Dimsum',
+      'Beef Chorizo',
+      'Squidball Kimsea',
+      'Squidball Holiday',
+      'Tocino Roll',
+      'Orlian',
+    ],
+  };
+
+  // Expose catalog categories as a list
+  List<String> get catalogCategories => productCatalog.keys.toList();
+
+  // Get product names for a specific category
+  List<String> getProductsForCategory(String category) {
+    return productCatalog[category] ?? const [];
+  }
+
   Future<Database> get database async {
     if (_db != null) return _db!;
     _db = await _initDB();
@@ -269,6 +345,51 @@ class DatabaseHelper {
   Future<int> insertProduct(Map<String, dynamic> product) async {
     final db = await database;
     return await db.insert('products', product);
+  }
+
+  // Insert or accumulate product stock if same name/category/unitPrice exists
+  Future<int> insertOrAccumulateProduct({
+    required String productName,
+    required String category,
+    required int quantity,
+    required double unitPrice,
+    String? imagePath,
+  }) async {
+    final db = await database;
+
+    // Try to find an existing product with same name, category, and price
+    final existing = await db.query(
+      'products',
+      where: 'productName = ? AND category = ? AND unitPrice = ?',
+      whereArgs: [productName, category, unitPrice],
+      limit: 1,
+    );
+
+    if (existing.isNotEmpty) {
+      final existingRow = existing.first;
+      final id = (existingRow['id'] as num).toInt();
+      final currentQty = (existingRow['quantity'] as num).toInt();
+      final newQty = currentQty + quantity;
+
+      // Update quantity and optionally imagePath
+      final updateData = <String, Object?>{'quantity': newQty};
+      if (imagePath != null && imagePath.isNotEmpty) {
+        updateData['imagePath'] = imagePath;
+      }
+
+      await db.update('products', updateData, where: 'id = ?', whereArgs: [id]);
+      return id;
+    }
+
+    // Otherwise insert a new product row
+    return await db.insert('products', {
+      'productName': productName,
+      'category': category,
+      'quantity': quantity,
+      'unitPrice': unitPrice,
+      'imagePath': imagePath,
+      'createdAt': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<List<Map<String, dynamic>>> fetchProducts({String? category}) async {
