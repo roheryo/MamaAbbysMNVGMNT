@@ -228,30 +228,24 @@ void _filterByStatus(String? status) {
   }
 
   Future<void> _pickDateTime() async {
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: selectedDateTime ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (pickedDate != null) {
-      final pickedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(selectedDateTime ?? DateTime.now()),
+  final pickedDate = await showDatePicker(
+    context: context,
+    initialDate: selectedDateTime ?? DateTime.now(),
+    firstDate: DateTime(2020),
+    lastDate: DateTime(2030),
+  );
+
+  if (pickedDate != null) {
+    setState(() {
+      // Only store the date, set time to 00:00
+      selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
       );
-      if (pickedTime != null) {
-        setState(() {
-          selectedDateTime = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-        });
-      }
-    }
+    });
   }
+}
 
   Future<void> _deleteSelected() async {
     final db = DatabaseHelper();
