@@ -191,50 +191,69 @@ class _NotificationPage extends State<NotificationPage> {
                       return Stack(
                         children: [
                           Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                            child: ListTile(
-                              dense: true,
-                              visualDensity: const VisualDensity(vertical: -2),
-                              contentPadding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                              leading: Icon(
-                                isDelivery ? Icons.local_shipping : Icons.error,
-                                color: isDelivery ? Colors.blue : Colors.orange,
-                                size: 24,
-                              ),
-                              title: Text(
-                                isDelivery
-                                    ? message.split("\n").first 
-                                    : message,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                              ),
-                              subtitle: Text(
-                                _formatDate(n["createdAt"]),
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                              trailing: isDelivery
-                                  ? Padding(
-                                    padding: const EdgeInsets.only(right: 8), 
-                                    child: ElevatedButton(
-                                      onPressed: () => _showDeliveryDetails(message),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.white,
-                                        minimumSize: const Size(50, 28),
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        textStyle: const TextStyle(fontSize: 12),
+                            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        isDelivery ? Icons.local_shipping : Icons.error,
+                                        color: isDelivery ? Colors.blue : Colors.orange,
+                                        size: 24,
                                       ),
-                                      child: const Text("View"),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    isDelivery ? message.split("\n").first : message,
+                                                    style: const TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                                                  onPressed: () => _deleteNotification(n["id"]),
+                                                  splashRadius: 18,
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              _formatDate(n["createdAt"]),
+                                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (isDelivery)
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: ElevatedButton(
+                                        onPressed: () => _showDeliveryDetails(message),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          minimumSize: const Size(50, 28),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          textStyle: const TextStyle(fontSize: 12),
+                                        ),
+                                        child: const Text("View"),
+                                      ),
                                     ),
-                                  )
-                               : null,
-                            ),
-                          ),
-                          Positioned(
-                            right: 2,
-                            top: 2,
-                            child: IconButton(
-                              icon: const Icon(Icons.close, size: 18, color: Colors.grey),
-                              onPressed: () => _deleteNotification(n["id"]),
-                              splashRadius: 18,
+                                ],
+                              ),
                             ),
                           ),
                         ],
