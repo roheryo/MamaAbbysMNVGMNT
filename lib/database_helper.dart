@@ -788,6 +788,62 @@ class DatabaseHelper {
     );
   }
 
+  // Returns sales transactions joined with product category and filtered by inclusive date range.
+  // startDate/endDate should be in 'yyyy-MM-dd' format when provided.
+  Future<List<Map<String, dynamic>>> fetchSalesTransactionsWithCategory({
+    String? startDate,
+    String? endDate,
+  }) async {
+    final db = await database;
+
+    String where = '';
+    List<dynamic> whereArgs = [];
+
+    String? startIso;
+    String? endIso;
+
+    if (startDate != null) {
+      try {
+        final d = DateTime.parse(startDate);
+        startIso = DateTime(d.year, d.month, d.day).toIso8601String();
+      } catch (_) {
+        // Fallback: use raw string if parsing fails
+        startIso = startDate;
+      }
+    }
+
+    if (endDate != null) {
+      try {
+        final d = DateTime.parse(endDate);
+        endIso = DateTime(d.year, d.month, d.day, 23, 59, 59, 999).toIso8601String();
+      } catch (_) {
+        endIso = endDate;
+      }
+    }
+
+    if (startIso != null && endIso != null) {
+      where = 'st.saleDate BETWEEN ? AND ?';
+      whereArgs.addAll([startIso, endIso]);
+    } else if (startIso != null) {
+      where = 'st.saleDate >= ?';
+      whereArgs.add(startIso);
+    } else if (endIso != null) {
+      where = 'st.saleDate <= ?';
+      whereArgs.add(endIso);
+    }
+
+    final rows = await db.rawQuery(
+      'SELECT st.id, st.productId, st.productName, st.quantity, st.unitPrice, st.totalAmount, st.saleDate, p.category '
+      'FROM sales_transactions st '
+      'LEFT JOIN products p ON p.id = st.productId'
+      '${where.isNotEmpty ? ' WHERE ' + where : ''} '
+      'ORDER BY st.saleDate DESC',
+      whereArgs.isNotEmpty ? whereArgs : null,
+    );
+
+    return rows;
+  }
+
   Future<double> getTotalSalesAmount({
     String? startDate,
     String? endDate,
