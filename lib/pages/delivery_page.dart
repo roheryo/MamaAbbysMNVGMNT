@@ -189,6 +189,38 @@ class _DeliveryPageState extends State<DeliveryPage> {
     await _refreshDeliveriesAndCheckOverdue();
   }
 
+   Future<void> _cancelDelivery(int id) async {
+  final db = DatabaseHelper();
+
+  // Get delivery details to restore quantity
+  final deliveries = await db.fetchDeliveries();
+  final delivery = deliveries.firstWhere((d) => d['id'] == id, orElse: () => {});
+
+  if (delivery.isNotEmpty) {
+    final productId = delivery['productId'] as int;
+    final quantity = delivery['quantity'] as int;
+
+    // Get current product quantity
+    final products = await db.fetchProducts();
+    final product = products.firstWhere((p) => p['id'] == productId, orElse: () => {});
+
+    if (product.isNotEmpty) {
+      final currentQty = product['quantity'] as int;
+      final restoredQty = currentQty + quantity;
+
+      // Restore quantity to product
+      await db.updateProduct(productId, {"quantity": restoredQty});
+    }
+  }
+
+  // Update delivery status to Cancelled
+  await db.updateDeliveryStatus(id, "Cancelled");
+  await _refreshDeliveriesAndCheckOverdue();
+}
+
+
+
+
   void _showAddDeliveryDialog() {
     final customerController = TextEditingController();
     final locationController = TextEditingController();
@@ -427,6 +459,14 @@ class _DeliveryPageState extends State<DeliveryPage> {
             onPressed: () => Navigator.pop(context),
             child: const Text("Close"),
           ),
+          if (delivery['status'] != 'Delivered' && delivery['status'] != 'Cancelled')
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog first
+                await _cancelDelivery(delivery['id']);
+              },
+              child: const Text("Cancel Delivery"),
+            ),
         ],
       ),
     );
@@ -659,7 +699,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
               itemBuilder: (context, index) {
                 final delivery = filteredDeliveries[index];
                 final isSelected = selectedDeliveries.contains(delivery["id"]);
-                final isDelivered = (delivery["status"] ?? "") == "Delivered";
+                final status = (delivery["status"] ?? "").toString().toLowerCase();
+                final isDelivered = status == "delivered";
+                final isCancelled = status == "cancelled";
                 return Card(
                   child: ListTile(
                     leading: isSelectionMode
@@ -714,8 +756,8 @@ class _DeliveryPageState extends State<DeliveryPage> {
                                 style: TextStyle(fontSize: 10),
                               ),
                             ),
-                            if (!isDelivered) const SizedBox(width: 4),
-                            if (!isDelivered)
+                            if (!isDelivered && !isCancelled) const SizedBox(width: 4),
+                            if (!isDelivered && !isCancelled)
                               ElevatedButton(
                                 onPressed: () => _markAsDone(delivery["id"]),
                                 style: ElevatedButton.styleFrom(
@@ -732,6 +774,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                           ],
                         )
                       : null,
+
 
                   ),
                 );
