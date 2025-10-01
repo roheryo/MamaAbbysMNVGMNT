@@ -600,7 +600,7 @@ class DatabaseHelper {
         if (existing.isEmpty) {
           await insertNotification(
             "Overdue Delivery",
-            "$message\nLocation: ${d['location']}\nProduct ID: ${d['productId']} | Qty: ${d['quantity']}",
+            "$message\nLocation: ${d['location']}",
           );
         }
       }

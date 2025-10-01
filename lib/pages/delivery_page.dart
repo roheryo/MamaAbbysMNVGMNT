@@ -13,6 +13,7 @@ class DeliveryPage extends StatefulWidget {
 }
 
 class _DeliveryPageState extends State<DeliveryPage> {
+  String? _selectedStatus;
   List<Map<String, dynamic>> deliveries = [];
   DateTime? selectedDateTime;
   bool isSelectionMode = false;
@@ -22,6 +23,74 @@ class _DeliveryPageState extends State<DeliveryPage> {
   List<String> categories = [];
   List<Map<String, dynamic>> allProducts = [];
 
+      void _showStatusFilterDialog() {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text("Filter by Status"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ["Pending", "Overdue", "Delivered", "Cancelled"]
+              .map(
+                (status) => ListTile(
+                  contentPadding: EdgeInsets.zero, // Remove padding
+                  title: Text(status),
+                  leading: Radio<String>(
+                    value: status,
+                    groupValue: _selectedStatus,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedStatus = value;
+                        _filterByStatus(value);
+                      });
+                      Navigator.pop(context); // Close dialog immediately
+                    },
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _selectedStatus = null;
+                _filterByStatus(null); // Reset filter
+              });
+              Navigator.pop(context);
+            },
+            child: const Text("Clear Filter"),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+// ===== Function to filter deliveries by status =====
+void _filterByStatus(String? status) {
+  final db = DatabaseHelper();
+  if (status == null) {
+    // No filter, show all
+    db.fetchDeliveries().then((value) {
+      setState(() {
+        deliveries = value;
+      });
+    });
+  } else {
+    db.fetchDeliveries().then((value) {
+      setState(() {
+        deliveries = value
+            .where((d) =>
+                (d["status"] ?? "").toString().toLowerCase() ==
+                status.toLowerCase())
+            .toList();
+      });
+    });
+  }
+}
+    
   @override
   void initState() {
     super.initState();
@@ -49,37 +118,50 @@ class _DeliveryPageState extends State<DeliveryPage> {
   }
 
   Future<void> _refreshDeliveriesAndCheckOverdue() async {
-    final db = DatabaseHelper();
-    await db.checkOverdueDeliveries(overdueAfter: Duration.zero);
-    deliveries = await db.fetchDeliveries();
-    setState(() {});
+  final db = DatabaseHelper();
+  await db.checkOverdueDeliveries(overdueAfter: Duration.zero);
+  deliveries = await db.fetchDeliveries();
+  setState(() {});
 
-    // Show toast for the latest unread notification, then mark it read
-    final unread = await db.fetchNotifications(onlyUnread: true);
-    if (unread.isNotEmpty && mounted) {
-      final latest = unread.first;
-      final message = latest['message']?.toString() ?? 'New notification';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          action: SnackBarAction(
-            label: 'View',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NotificationPage()),
-              ).then((_) => _refreshUnread());
-            },
+  // toast for overdue delivery notifications
+  final unread = await db.fetchNotifications(onlyUnread: true);
+  if (unread.isNotEmpty && mounted) {
+    final latest = unread.first;
+    final message = latest['message']?.toString() ?? '';
+
+    // Check if the notification matches the overdue delivery format
+    final regex = RegExp(r'Your Delivery For (.+) is overdue!', caseSensitive: false);
+    final match = regex.firstMatch(message);
+
+    if (match != null) {
+      final customerName = match.group(1);
+      if (customerName != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Your Delivery For $customerName is overdue!"),
+            action: SnackBarAction(
+              label: 'View',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationPage()),
+                ).then((_) => _refreshUnread());
+              },
+            ),
           ),
-        ),
-      );
-      final id = latest['id'];
-      if (id is int) {
-        await db.markNotificationsReadByIds([id]);
+        );
+
+        // Mark this notification as read
+        final id = latest['id'];
+        if (id is int) {
+          await db.markNotificationsReadByIds([id]);
+        }
+        await _refreshUnread();
       }
-      await _refreshUnread();
     }
   }
+}
+
 
   Future<void> _refreshUnread() async {
     final db = DatabaseHelper();
@@ -146,30 +228,24 @@ class _DeliveryPageState extends State<DeliveryPage> {
   }
 
   Future<void> _pickDateTime() async {
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: selectedDateTime ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (pickedDate != null) {
-      final pickedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(selectedDateTime ?? DateTime.now()),
+  final pickedDate = await showDatePicker(
+    context: context,
+    initialDate: selectedDateTime ?? DateTime.now(),
+    firstDate: DateTime(2020),
+    lastDate: DateTime(2030),
+  );
+
+  if (pickedDate != null) {
+    setState(() {
+      // Only store the date, set time to 00:00
+      selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
       );
-      if (pickedTime != null) {
-        setState(() {
-          selectedDateTime = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-        });
-      }
-    }
+    });
   }
+}
 
   Future<void> _deleteSelected() async {
     final db = DatabaseHelper();
@@ -300,7 +376,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     },
                   ),
                   const SizedBox(height: 8),
-                  // Product Dropdown
+                  
                   DropdownButtonFormField<Map<String, dynamic>>(
                     value: selectedProduct,
                     decoration: const InputDecoration(
@@ -638,94 +714,113 @@ class _DeliveryPageState extends State<DeliveryPage> {
             ),
           ),
           const SizedBox(height: 12),
-          // ===== FILTER BAR =====
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+          
+         // ===== FILTER BAR =====
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: _pickDateTime,
-                      icon: const Icon(Icons.calendar_today),
-                      label: Text(
-                        selectedDateTime == null
-                            ? "Select Date"
-                            : "${selectedDateTime!.year}-${selectedDateTime!.month.toString().padLeft(2, '0')}-${selectedDateTime!.day.toString().padLeft(2, '0')}",
-                      ),
+                    // ===== LEFT COLUMN: Select Date + Add Delivery =====
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Select Date button
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _pickDateTime,
+                              icon: const Icon(Icons.calendar_today),
+                              label: Text(
+                                selectedDateTime == null
+                                    ? "Select Date"
+                                    : "${selectedDateTime!.year}-${selectedDateTime!.month.toString().padLeft(2, '0')}-${selectedDateTime!.day.toString().padLeft(2, '0')}",
+                              ),
+                            ),
+                            if (selectedDateTime != null)
+                              IconButton(
+                                icon: const Icon(Icons.clear, color: Colors.red),
+                                onPressed: () {
+                                  setState(() {
+                                    selectedDateTime = null;
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Add Delivery button right below Select Date
+                        ElevatedButton.icon(
+                          onPressed: _showAddDeliveryDialog,
+                          icon: const Icon(Icons.add, color: Colors.white),
+                          label: const Text("Add Delivery"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blueAccent,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
-                    if (selectedDateTime != null)
-                      IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.red),
-                        onPressed: () {
-                          setState(() {
-                            selectedDateTime = null;
-                          });
-                        },
-                      ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    if (isSelectionMode) ...[
-                      ElevatedButton.icon(
-                        onPressed: selectedDeliveries.isEmpty
-                            ? null
-                            : _deleteSelected,
-                        icon: const Icon(Icons.delete, size: 16),
-                        label: const Text("Delete"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
+
+                    // ===== RIGHT COLUMN: Filter Status + Select/Delete/Cancel =====
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // Filter Status button
+                        ElevatedButton(
+                          onPressed: _showStatusFilterDialog,
+                          child: const Text("Filter Status"),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            isSelectionMode = false;
-                            selectedDeliveries.clear();
-                          });
-                        },
-                        icon: const Icon(Icons.close, size: 16),
-                        label: const Text("Cancel"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey,
+                        const SizedBox(height: 6),
+
+                        // Select / Delete / Cancel buttons
+                        Row(
+                          children: [
+                            if (!isSelectionMode)
+                              ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    isSelectionMode = true;
+                                    selectedDeliveries.clear();
+                                  });
+                                },
+                                child: const Text("Select"),
+                              ),
+                            if (isSelectionMode) ...[
+                              ElevatedButton.icon(
+                                onPressed: selectedDeliveries.isEmpty ? null : _deleteSelected,
+                                icon: const Icon(Icons.delete, size: 16),
+                                label: const Text("Delete"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    isSelectionMode = false;
+                                    selectedDeliveries.clear();
+                                  });
+                                },
+                                icon: const Icon(Icons.close, size: 16),
+                                label: const Text("Cancel"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ),
-                    ] else
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            isSelectionMode = true;
-                            selectedDeliveries.clear();
-                          });
-                        },
-                        child: const Text("Select"),
-                      ),
+                      ],
+                    ),
                   ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          // ===== ADD BUTTON =====
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: ElevatedButton.icon(
-                onPressed: _showAddDeliveryDialog,
-                icon: const Icon(Icons.add, color: Colors.white),
-                label: const Text("Add Delivery"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
                 ),
               ),
-            ),
-          ),
+
           // ===== LIST OF DELIVERIES =====
           Expanded(
             child: ListView.builder(
@@ -738,81 +833,80 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 final isDelivered = status == "delivered";
                 final isCancelled = status == "cancelled";
                 return Card(
-                  child: ListTile(
-                    leading: isSelectionMode
-                        ? Checkbox(
-                            value: isSelected,
-                            onChanged: (val) {
-                              setState(() {
-                                if (val == true) {
-                                  selectedDeliveries.add(delivery["id"]);
-                                } else {
-                                  selectedDeliveries.remove(delivery["id"]);
-                                }
-                              });
-                            },
-                          )
-                        : null,
-                    title: Text(delivery["customerName"] ?? ''),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Customer: ${delivery['customerName']}"),
-                        Text(
-                          "Status: ${delivery['status'] ?? 'Pending'}",
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Builder(
-                          builder: (_) {
-                            final dt = _tryParseDate(delivery['createdAt']);
-                            final text = dt != null ? dt.toString() : (delivery['createdAt']?.toString() ?? 'N/A');
-                            return Text("Date: $text");
-                          },
-                        ),
-                      ],
-                    ),
-                    trailing: !isSelectionMode
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () => _showDeliveryDetails(delivery),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black,
-                                minimumSize: const Size(50, 30),
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                              ),
-                              child: const Text(
-                                "View",
-                                style: TextStyle(fontSize: 10),
-                              ),
+                    color: status == "overdue" ? Colors.red.shade100 : null, // Light red for overdue
+                    child: ListTile(
+                      leading: isSelectionMode
+                          ? Checkbox(
+                              value: isSelected,
+                              onChanged: (val) {
+                                setState(() {
+                                  if (val == true) {
+                                    selectedDeliveries.add(delivery["id"]);
+                                  } else {
+                                    selectedDeliveries.remove(delivery["id"]);
+                                  }
+                                });
+                              },
+                            )
+                          : null,
+                      title: Text(delivery["customerName"] ?? ''),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Customer: ${delivery['customerName']}"),
+                          Text(
+                            "Status: ${delivery['status'] ?? 'Pending'}",
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
                             ),
-                            if (!isDelivered && !isCancelled) const SizedBox(width: 4),
-                            if (!isDelivered && !isCancelled)
-                              ElevatedButton(
-                                onPressed: () => _markAsDone(delivery["id"]),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.black,
-                                  minimumSize: const Size(50, 30),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                          ),
+                          Builder(
+                            builder: (_) {
+                              final dt = _tryParseDate(delivery['createdAt']);
+                              final text = dt != null ? dt.toString() : (delivery['createdAt']?.toString() ?? 'N/A');
+                              return Text("Date: $text");
+                            },
+                          ),
+                        ],
+                      ),
+                      trailing: !isSelectionMode
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () => _showDeliveryDetails(delivery),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                    minimumSize: const Size(50, 30),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                                  ),
+                                  child: const Text(
+                                    "View",
+                                    style: TextStyle(fontSize: 10),
+                                  ),
                                 ),
-                                child: const Text(
-                                  "Done",
-                                  style: TextStyle(fontSize: 10),
-                                ),
-                              ),
-                          ],
-                        )
-                      : null,
-
-
-                  ),
-                );
+                                if (!isDelivered && !isCancelled) const SizedBox(width: 4),
+                                if (!isDelivered && !isCancelled)
+                                  ElevatedButton(
+                                    onPressed: () => _markAsDone(delivery["id"]),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: Colors.black,
+                                      minimumSize: const Size(50, 30),
+                                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                                    ),
+                                    child: const Text(
+                                      "Done",
+                                      style: TextStyle(fontSize: 10),
+                                    ),
+                                  ),
+                              ],
+                            )
+                          : null,
+                    ),
+                  );
               },
             ),
           ),
