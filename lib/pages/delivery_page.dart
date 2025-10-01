@@ -489,24 +489,30 @@ class _DeliveryPageState extends State<DeliveryPage> {
       }).toList();
     }
 
-      filteredDeliveries.sort((a, b) {
+        filteredDeliveries.sort((a, b) {
     final statusA = (a["status"] ?? "").toString().toLowerCase();
     final statusB = (b["status"] ?? "").toString().toLowerCase();
 
-    // Push Delivered and Cancelled to the bottom
+    //  Push Overdue to the top
+    if (statusA == "overdue" && statusB != "overdue") return -1;
+    if (statusB == "overdue" && statusA != "overdue") return 1;
+
+    //  Push Delivered and Cancelled to the bottom
     final isDoneA = statusA == "delivered" || statusA == "cancelled";
     final isDoneB = statusB == "delivered" || statusB == "cancelled";
 
     if (isDoneA && !isDoneB) return 1;
     if (!isDoneA && isDoneB) return -1;
 
+    //  Sort by date (ascending)
     final dateA = _tryParseDate(a["createdAt"]);
     final dateB = _tryParseDate(b["createdAt"]);
     if (dateA == null && dateB == null) return 0;
-    if (dateA == null) return 1; // nulls last
+    if (dateA == null) return 1;
     if (dateB == null) return -1;
     return dateA.compareTo(dateB);
   });
+
 
 
     return Scaffold(
