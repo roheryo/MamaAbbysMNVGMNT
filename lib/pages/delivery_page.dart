@@ -13,6 +13,7 @@ class DeliveryPage extends StatefulWidget {
 }
 
 class _DeliveryPageState extends State<DeliveryPage> {
+  String? _selectedStatus;
   List<Map<String, dynamic>> deliveries = [];
   DateTime? selectedDateTime;
   bool isSelectionMode = false;
@@ -23,43 +24,72 @@ class _DeliveryPageState extends State<DeliveryPage> {
   List<Map<String, dynamic>> allProducts = [];
 
       void _showStatusFilterDialog() {
-      showDialog(
-        context: context,
-        builder: (context) {
-          String? selectedStatus;
-          return AlertDialog(
-            title: const Text("Filter by Status"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: ["Pending", "Overdue", "Delivered", "Cancelled"]
-                  .map((status) => RadioListTile<String>(
-                        title: Text(status),
-                        value: status,
-                        groupValue: selectedStatus,
-                        onChanged: (value) {
-                          setState(() {
-                            selectedStatus = value;
-                          });
-                          Navigator.pop(context);
-
-                          // Filter deliveries by status
-                          if (value != null) {
-                            setState(() {
-                              deliveries = deliveries
-                                  .where((d) =>
-                                      (d["status"] ?? "").toString().toLowerCase() ==
-                                      value.toLowerCase())
-                                  .toList();
-                            });
-                          }
-                        },
-                      ))
-                  .toList(),
-            ),
-          );
-        },
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text("Filter by Status"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ["Pending", "Overdue", "Delivered", "Cancelled"]
+              .map(
+                (status) => ListTile(
+                  contentPadding: EdgeInsets.zero, // Remove padding
+                  title: Text(status),
+                  leading: Radio<String>(
+                    value: status,
+                    groupValue: _selectedStatus,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedStatus = value;
+                        _filterByStatus(value);
+                      });
+                      Navigator.pop(context); // Close dialog immediately
+                    },
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _selectedStatus = null;
+                _filterByStatus(null); // Reset filter
+              });
+              Navigator.pop(context);
+            },
+            child: const Text("Clear Filter"),
+          ),
+        ],
       );
-    }
+    },
+  );
+}
+
+// ===== Function to filter deliveries by status =====
+void _filterByStatus(String? status) {
+  final db = DatabaseHelper();
+  if (status == null) {
+    // No filter, show all
+    db.fetchDeliveries().then((value) {
+      setState(() {
+        deliveries = value;
+      });
+    });
+  } else {
+    db.fetchDeliveries().then((value) {
+      setState(() {
+        deliveries = value
+            .where((d) =>
+                (d["status"] ?? "").toString().toLowerCase() ==
+                status.toLowerCase())
+            .toList();
+      });
+    });
+  }
+}
     
   @override
   void initState() {
