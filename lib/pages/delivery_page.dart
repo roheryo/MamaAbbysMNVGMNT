@@ -833,81 +833,80 @@ void _filterByStatus(String? status) {
                 final isDelivered = status == "delivered";
                 final isCancelled = status == "cancelled";
                 return Card(
-                  child: ListTile(
-                    leading: isSelectionMode
-                        ? Checkbox(
-                            value: isSelected,
-                            onChanged: (val) {
-                              setState(() {
-                                if (val == true) {
-                                  selectedDeliveries.add(delivery["id"]);
-                                } else {
-                                  selectedDeliveries.remove(delivery["id"]);
-                                }
-                              });
-                            },
-                          )
-                        : null,
-                    title: Text(delivery["customerName"] ?? ''),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Customer: ${delivery['customerName']}"),
-                        Text(
-                          "Status: ${delivery['status'] ?? 'Pending'}",
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Builder(
-                          builder: (_) {
-                            final dt = _tryParseDate(delivery['createdAt']);
-                            final text = dt != null ? dt.toString() : (delivery['createdAt']?.toString() ?? 'N/A');
-                            return Text("Date: $text");
-                          },
-                        ),
-                      ],
-                    ),
-                    trailing: !isSelectionMode
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () => _showDeliveryDetails(delivery),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black,
-                                minimumSize: const Size(50, 30),
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                              ),
-                              child: const Text(
-                                "View",
-                                style: TextStyle(fontSize: 10),
-                              ),
+                    color: status == "overdue" ? Colors.red.shade100 : null, // Light red for overdue
+                    child: ListTile(
+                      leading: isSelectionMode
+                          ? Checkbox(
+                              value: isSelected,
+                              onChanged: (val) {
+                                setState(() {
+                                  if (val == true) {
+                                    selectedDeliveries.add(delivery["id"]);
+                                  } else {
+                                    selectedDeliveries.remove(delivery["id"]);
+                                  }
+                                });
+                              },
+                            )
+                          : null,
+                      title: Text(delivery["customerName"] ?? ''),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Customer: ${delivery['customerName']}"),
+                          Text(
+                            "Status: ${delivery['status'] ?? 'Pending'}",
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
                             ),
-                            if (!isDelivered && !isCancelled) const SizedBox(width: 4),
-                            if (!isDelivered && !isCancelled)
-                              ElevatedButton(
-                                onPressed: () => _markAsDone(delivery["id"]),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.black,
-                                  minimumSize: const Size(50, 30),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                          ),
+                          Builder(
+                            builder: (_) {
+                              final dt = _tryParseDate(delivery['createdAt']);
+                              final text = dt != null ? dt.toString() : (delivery['createdAt']?.toString() ?? 'N/A');
+                              return Text("Date: $text");
+                            },
+                          ),
+                        ],
+                      ),
+                      trailing: !isSelectionMode
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () => _showDeliveryDetails(delivery),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                    minimumSize: const Size(50, 30),
+                                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                                  ),
+                                  child: const Text(
+                                    "View",
+                                    style: TextStyle(fontSize: 10),
+                                  ),
                                 ),
-                                child: const Text(
-                                  "Done",
-                                  style: TextStyle(fontSize: 10),
-                                ),
-                              ),
-                          ],
-                        )
-                      : null,
-
-
-                  ),
-                );
+                                if (!isDelivered && !isCancelled) const SizedBox(width: 4),
+                                if (!isDelivered && !isCancelled)
+                                  ElevatedButton(
+                                    onPressed: () => _markAsDone(delivery["id"]),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: Colors.black,
+                                      minimumSize: const Size(50, 30),
+                                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                                    ),
+                                    child: const Text(
+                                      "Done",
+                                      style: TextStyle(fontSize: 10),
+                                    ),
+                                  ),
+                              ],
+                            )
+                          : null,
+                    ),
+                  );
               },
             ),
           ),
