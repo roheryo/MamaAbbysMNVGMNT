@@ -222,62 +222,76 @@ class _DeliveryPageState extends State<DeliveryPage> {
 
 
   void _showAddDeliveryDialog() {
-    final customerController = TextEditingController();
-    final locationController = TextEditingController();
-    final contactController = TextEditingController();
-    final quantityController = TextEditingController();
-    String? category = categories.isNotEmpty ? categories[0] : null;
-    List<Map<String, dynamic>> availableProducts = [];
-    Map<String, dynamic>? selectedProduct;
-    DateTime? deliveryDate;
+  final customerController = TextEditingController();
+  final locationController = TextEditingController();
+  final contactController = TextEditingController();
+  final quantityController = TextEditingController();
+  String? category = categories.isNotEmpty ? categories[0] : null;
+  List<Map<String, dynamic>> availableProducts = [];
+  Map<String, dynamic>? selectedProduct;
+  DateTime? deliveryDate = selectedDateTime ?? DateTime.now();
 
-    deliveryDate = selectedDateTime ?? DateTime.now();
+  void updateProductsByCategory(String? cat) {
+    if (cat == null) return;
+    availableProducts = allProducts.where((p) => p['category'] == cat).toList();
+    selectedProduct = null;
+    quantityController.text = '';
+  }
 
-    void updateProductsByCategory(String? cat) {
-      if (cat == null) return;
-      availableProducts = allProducts
-          .where((p) => p['category'] == cat)
-          .toList();
-      selectedProduct = null;
-      quantityController.text = '';
-    }
+  updateProductsByCategory(category);
 
-    updateProductsByCategory(category);
-
-    showDialog(
-      context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: const Text("Add New Delivery"),
-            content: SingleChildScrollView(
+  showDialog(
+    context: context,
+    builder: (_) => StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          title: const Text("Add New Delivery"),
+          content: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+            ),
+            child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Customer Name
                   TextField(
                     controller: customerController,
                     decoration: const InputDecoration(
                       labelText: "Customer Name",
+                      isDense: true,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  // Contact
                   TextField(
                     controller: contactController,
                     decoration: const InputDecoration(
                       labelText: "Contact Number",
+                      isDense: true,
                     ),
                     keyboardType: TextInputType.phone,
                   ),
+                  const SizedBox(height: 8),
+                  // Location
                   TextField(
                     controller: locationController,
-                    decoration: const InputDecoration(labelText: "Location"),
+                    decoration: const InputDecoration(
+                      labelText: "Location",
+                      isDense: true,
+                    ),
                   ),
+                  const SizedBox(height: 8),
+                  // Category Dropdown
                   DropdownButtonFormField<String>(
                     value: category,
                     decoration: const InputDecoration(
                       labelText: "Product Category",
+                      isDense: true,
                     ),
                     items: categories
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis)))
                         .toList(),
                     onChanged: (value) {
                       category = value;
@@ -286,16 +300,21 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     },
                   ),
                   const SizedBox(height: 8),
+                  // Product Dropdown
                   DropdownButtonFormField<Map<String, dynamic>>(
                     value: selectedProduct,
-                    decoration: const InputDecoration(labelText: "Product"),
+                    decoration: const InputDecoration(
+                      labelText: "Product",
+                      isDense: true,
+                    ),
                     items: availableProducts
-                        .map(
-                          (p) => DropdownMenuItem(
-                            value: p,
-                            child: Text(p['productName']),
-                          ),
-                        )
+                        .map((p) => DropdownMenuItem(
+                              value: p,
+                              child: Text(
+                                p['productName'],
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ))
                         .toList(),
                     onChanged: (value) {
                       selectedProduct = value;
@@ -304,120 +323,126 @@ class _DeliveryPageState extends State<DeliveryPage> {
                     },
                   ),
                   const SizedBox(height: 8),
+                  // Quantity
                   TextField(
                     controller: quantityController,
-                    decoration: const InputDecoration(labelText: "Quantity"),
+                    decoration: const InputDecoration(
+                      labelText: "Quantity",
+                      isDense: true,
+                    ),
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      final pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: deliveryDate ?? DateTime.now(),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
-                      if (pickedDate != null) {
-                        final pickedTime = await showTimePicker(
+                  // Delivery Date Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final pickedDate = await showDatePicker(
                           context: context,
-                          initialTime: TimeOfDay.fromDateTime(
-                            deliveryDate ?? DateTime.now(),
-                          ),
+                          initialDate: deliveryDate ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
                         );
-                        if (pickedTime != null) {
-                          deliveryDate = DateTime(
-                            pickedDate.year,
-                            pickedDate.month,
-                            pickedDate.day,
-                            pickedTime.hour,
-                            pickedTime.minute,
+                        if (pickedDate != null) {
+                          final pickedTime = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.fromDateTime(deliveryDate ?? DateTime.now()),
                           );
-                          setState(() {});
+                          if (pickedTime != null) {
+                            deliveryDate = DateTime(
+                              pickedDate.year,
+                              pickedDate.month,
+                              pickedDate.day,
+                              pickedTime.hour,
+                              pickedTime.minute,
+                            );
+                            setState(() {});
+                          }
                         }
-                      }
-                    },
-                    icon: const Icon(Icons.calendar_today),
-                    label: Text(
-                      deliveryDate != null
-                          ? "${deliveryDate!.year}-${deliveryDate!.month.toString().padLeft(2, '0')}-${deliveryDate!.day.toString().padLeft(2, '0')} "
-                            "${deliveryDate!.hour.toString().padLeft(2, '0')}:${deliveryDate!.minute.toString().padLeft(2, '0')}"
-                          : "Pick Delivery Date & Time",
+                      },
+                      icon: const Icon(Icons.calendar_today),
+                      label: Text(
+                        deliveryDate != null
+                            ? "${deliveryDate!.year}-${deliveryDate!.month.toString().padLeft(2, '0')}-${deliveryDate!.day.toString().padLeft(2, '0')} "
+                              "${deliveryDate!.hour.toString().padLeft(2, '0')}:${deliveryDate!.minute.toString().padLeft(2, '0')}"
+                            : "Pick Delivery Date & Time",
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (customerController.text.isEmpty ||
-                      contactController.text.isEmpty ||
-                      locationController.text.isEmpty ||
-                      selectedProduct == null ||
-                      deliveryDate == null ||
-                      quantityController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Please fill all fields")),
-                    );
-                    return;
-                  }
-
-                  final enteredQty = int.tryParse(quantityController.text);
-                  if (enteredQty == null || enteredQty <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Enter a valid quantity")),
-                    );
-                    return;
-                  }
-
-                  if (enteredQty > selectedProduct!['quantity']) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          "Available stock is ${selectedProduct!['quantity']}, cannot deliver $enteredQty",
-                        ),
-                      ),
-                    );
-                    return;
-                  }
-
-                  await DatabaseHelper().insertDelivery({
-                    "customerName": customerController.text,
-                    "customerContact": contactController.text,
-                    "location": locationController.text,
-                    "category": category,
-                    "productId": selectedProduct!['id'],
-                    "quantity": enteredQty,
-                    "createdAt": deliveryDate!.toString(),
-                    "status": "Pending",
-                  });
-
-                    // Immediately deduct from inventory
-                  final newQty = (selectedProduct!['quantity'] as int) - enteredQty;
-                  await DatabaseHelper().updateProduct(
-                    selectedProduct!['id'] as int,
-                    {"quantity": newQty < 0 ? 0 : newQty},
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (customerController.text.isEmpty ||
+                    contactController.text.isEmpty ||
+                    locationController.text.isEmpty ||
+                    selectedProduct == null ||
+                    deliveryDate == null ||
+                    quantityController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please fill all fields")),
                   );
+                  return;
+                }
 
-                  // Re-evaluate low stock notifications after deduction
-                  await DatabaseHelper().checkLowStockProducts();
+                final enteredQty = int.tryParse(quantityController.text);
+                if (enteredQty == null || enteredQty <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Enter a valid quantity")),
+                  );
+                  return;
+                }
 
-                  await _refreshDeliveriesAndCheckOverdue();
-                  Navigator.pop(context);
-                },
-                child: const Text("Add"),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
+                if (enteredQty > selectedProduct!['quantity']) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        "Available stock is ${selectedProduct!['quantity']}, cannot deliver $enteredQty",
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                await DatabaseHelper().insertDelivery({
+                  "customerName": customerController.text,
+                  "customerContact": contactController.text,
+                  "location": locationController.text,
+                  "category": category,
+                  "productId": selectedProduct!['id'],
+                  "quantity": enteredQty,
+                  "createdAt": deliveryDate!.toString(),
+                  "status": "Pending",
+                });
+
+                final newQty = (selectedProduct!['quantity'] as int) - enteredQty;
+                await DatabaseHelper().updateProduct(
+                  selectedProduct!['id'] as int,
+                  {"quantity": newQty < 0 ? 0 : newQty},
+                );
+
+                await DatabaseHelper().checkLowStockProducts();
+                await _refreshDeliveriesAndCheckOverdue();
+                Navigator.pop(context);
+              },
+              child: const Text("Add"),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
 
   void _showDeliveryDetails(Map<String, dynamic> delivery) {
     final product = allProducts.firstWhere(
