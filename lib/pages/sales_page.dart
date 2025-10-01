@@ -28,6 +28,8 @@ class _SalesPageState extends State<SalesPage> {
   double totalSales = 0.0;
   bool isLoading = false;
   List<Map<String, dynamic>> transactions = [];
+  bool isGenerating = false;
+  bool isRecomputing = false;
 
   Future<void> _pickTodayDate(BuildContext context) async {
     final DateTime now = DateTime.now();
@@ -163,6 +165,77 @@ class _SalesPageState extends State<SalesPage> {
           totalSales = 0.0;
           transactions = [];
           isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _generateDemoSales() async {
+    if (isGenerating) return;
+    setState(() {
+      isGenerating = true;
+    });
+    try {
+      final helper = DatabaseHelper();
+      final before = await helper.getSalesTransactionsCount();
+      final created = await helper.ensureHistoricalData(minTransactions: 500);
+      final after = await helper.getSalesTransactionsCount();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Generated ${created > 0 ? created : (after - before)} transactions. Total: $after'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      await _fetchSalesData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to generate demo sales: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isGenerating = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _recomputeDailyTotals() async {
+    if (isRecomputing) return;
+    setState(() {
+      isRecomputing = true;
+    });
+    try {
+      await DatabaseHelper().recomputeAllStoreSales();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Recomputed daily totals from sales transactions'),
+          backgroundColor: Colors.blue,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      await _fetchSalesData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Recompute failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isRecomputing = false;
         });
       }
     }
@@ -386,6 +459,39 @@ class _SalesPageState extends State<SalesPage> {
             ),
           ),
 
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: isRecomputing ? null : _recomputeDailyTotals,
+                  icon: isRecomputing
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.sync),
+                  label: Text(isRecomputing ? 'Recomputing...' : 'Recompute Daily Totals'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: isGenerating ? null : _generateDemoSales,
+                  icon: isGenerating
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.history),
+                  label: Text(isGenerating ? 'Generating...' : 'Generate 500+ Demo Sales'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 20),
 
           // Filter
@@ -491,8 +597,8 @@ class _SalesPageState extends State<SalesPage> {
                             final total = (t['totalAmount'] as num?)?.toDouble() ?? 0.0;
                             final saleDateRaw = t['saleDate']?.toString();
                             DateTime? saleDt = DateTime.tryParse(saleDateRaw ?? '');
-                            final dateLabel = saleDt != null
-                                ? DateFormat('MMM dd, yyyy').format(saleDt)
+                            final dateTimeLabel = saleDt != null
+                                ? DateFormat('MMM dd, yyyy, hh:mm a').format(saleDt)
                                 : '';
 
                             return ListTile(
@@ -503,8 +609,8 @@ class _SalesPageState extends State<SalesPage> {
                                 style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                               subtitle: Text(
-                                dateLabel.isNotEmpty
-                                    ? "$category • $dateLabel"
+                                dateTimeLabel.isNotEmpty
+                                    ? "$category • $dateTimeLabel"
                                     : category,
                               ),
                               trailing: Column(
