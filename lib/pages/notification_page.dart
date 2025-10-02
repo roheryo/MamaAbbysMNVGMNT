@@ -113,41 +113,43 @@ class _NotificationPage extends State<NotificationPage> {
     }
   }
 
-  showDialog(
-    context: context,
-    builder: (context) {
-      if (deliveryDetails == null) {
-        return const AlertDialog(
-          title: Text("Delivery Details"),
-          content: Text("Could not find delivery details in database."),
-        );
-      }
+  if (mounted) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        if (deliveryDetails == null) {
+          return const AlertDialog(
+            title: Text("Delivery Details"),
+            content: Text("Could not find delivery details in database."),
+          );
+        }
 
-      return AlertDialog(
-        title: const Text("Delivery Details"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Customer: ${deliveryDetails['customerName']}"),
-            Text("Contact: ${deliveryDetails['customerContact']}"),
-            Text("Address: ${deliveryDetails['location']}"),
-            Text("Category: ${deliveryDetails['category']}"),
-            Text("Product ID: ${deliveryDetails['productId']}"),
-            Text("Quantity: ${deliveryDetails['quantity']}"),
-            Text("Status: ${deliveryDetails['status']}"),
-            Text("Created: ${_formatDate(deliveryDetails['createdAt'])}"),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Close"),
+        return AlertDialog(
+          title: const Text("Delivery Details"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Customer: ${deliveryDetails['customerName']}"),
+              Text("Contact: ${deliveryDetails['customerContact']}"),
+              Text("Address: ${deliveryDetails['location']}"),
+              Text("Category: ${deliveryDetails['category']}"),
+              Text("Product ID: ${deliveryDetails['productId']}"),
+              Text("Quantity: ${deliveryDetails['quantity']}"),
+              Text("Status: ${deliveryDetails['status']}"),
+              Text("Created: ${_formatDate(deliveryDetails['createdAt'])}"),
+            ],
           ),
-        ],
-      );
-    },
-  );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 

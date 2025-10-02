@@ -9,6 +9,46 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  // Show logout confirmation dialog
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                _performLogout();
+              },
+              child: const Text(
+                'Logout',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Perform the actual logout
+  void _performLogout() {
+    // Clear navigation stack and navigate to login page
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/login',
+      (Route<dynamic> route) => false,
+    );
+  }
+
   // Helper widget for clickable options
   Widget _buildOption({
     required String title,
@@ -126,8 +166,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     title: "Logout",
                     subtitle: "Sign out in your account",
                     onTap: () {
-                      print("Logout clicked");
-                      // Implement logout logic here
+                      _showLogoutDialog();
                     },
                   ),
                 ],

@@ -50,6 +50,7 @@ class _EditPricesPage extends State<EditpricesPage> {
         await dbHelper.updateProduct(selectedProductId!, {
           'unitPrice': newPrice,
         });
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -59,6 +60,7 @@ class _EditPricesPage extends State<EditpricesPage> {
         // Reload products to reflect change
         loadProductsByCategory(selectedCategory!);
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Please enter a valid number for the price."),
@@ -66,6 +68,7 @@ class _EditPricesPage extends State<EditpricesPage> {
         );
       }
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Please select a product and enter a price."),

@@ -721,7 +721,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                     return ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
                                       child: Image.file(
-                                        File(imagePath!),
+                                        File(imagePath),
                                         width: 60,
                                         height: 60,
                                         fit: BoxFit.cover,
