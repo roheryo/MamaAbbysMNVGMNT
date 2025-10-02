@@ -59,15 +59,11 @@ class _SalesPageState extends State<SalesPage> {
       DateTime startOfWeek = picked.subtract(
         Duration(days: picked.weekday - 1),
       );
-      DateTime endOfWeek = startOfWeek.add(const Duration(days: 6));
 
       setState(() {
         selectedWeek = startOfWeek;
       });
 
-      print(
-        "Selected Week: ${DateFormat('MMM dd').format(startOfWeek)} - ${DateFormat('MMM dd').format(endOfWeek)}",
-      );
       _fetchSalesData();
     }
   }
@@ -84,9 +80,6 @@ class _SalesPageState extends State<SalesPage> {
       setState(() {
         selectedMonth = DateTime(picked.year, picked.month);
       });
-      print(
-        "Selected Month: ${DateFormat('MMMM yyyy').format(selectedMonth!)}",
-      );
       _fetchSalesData();
     }
   }
@@ -246,15 +239,8 @@ class _SalesPageState extends State<SalesPage> {
     super.initState();
     _refreshUnread();
     _fetchSalesData();
-    // Uncomment the line below to create sample data for testing
-    // _createSampleData();
   }
 
-  // Helper method to create sample data for testing (uncomment in initState to use)
-  Future<void> _createSampleData() async {
-    await DatabaseHelper().createSampleSalesData();
-    _fetchSalesData();
-  }
 
   // ===== Helper Widget for Bottom Navigation =====
   Widget _buildNavItem({
@@ -588,7 +574,7 @@ class _SalesPageState extends State<SalesPage> {
                         )
                       : ListView.separated(
                           itemCount: transactions.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          separatorBuilder: (_, _) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final t = transactions[index];
                             final name = (t['productName'] ?? '').toString();

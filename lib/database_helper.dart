@@ -177,7 +177,7 @@ class DatabaseHelper {
     ''');
 
     // Seed 2025 holiday schedule
-    final List<List<String>> _holidays2025 = [
+    final List<List<String>> holidays2025 = [
       ['2025-01-01', "New Year's Day"],
       ['2025-01-29', 'Chinese New Year'],
       ['2025-02-25', 'EDSA People Power Revolution Anniversary'],
@@ -199,7 +199,7 @@ class DatabaseHelper {
       ['2025-12-25', 'Christmas Day'],
       ['2025-12-30', 'Rizal Day'],
     ];
-    for (final h in _holidays2025) {
+    for (final h in holidays2025) {
       await db.insert('holidays', {'holiday_date': h[0], 'name': h[1]});
     }
 
@@ -366,7 +366,7 @@ class DatabaseHelper {
       ''');
 
       // Seed 2025 holidays (idempotent inserts)
-      final List<List<String>> _holidays2025 = [
+      final List<List<String>> holidays2025 = [
         ['2025-01-01', "New Year's Day"],
         ['2025-01-29', 'Chinese New Year'],
         ['2025-02-25', 'EDSA People Power Revolution Anniversary'],
@@ -388,7 +388,7 @@ class DatabaseHelper {
         ['2025-12-25', 'Christmas Day'],
         ['2025-12-30', 'Rizal Day'],
       ];
-      for (final h in _holidays2025) {
+      for (final h in holidays2025) {
         // Use INSERT OR IGNORE for idempotency
         await db.insert('holidays', {'holiday_date': h[0], 'name': h[1]}, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
@@ -976,7 +976,7 @@ class DatabaseHelper {
       'SELECT st.id, st.productId, st.productName, st.quantity, st.unitPrice, st.totalAmount, st.saleDate, p.category '
       'FROM sales_transactions st '
       'LEFT JOIN products p ON p.id = st.productId'
-      '${where.isNotEmpty ? ' WHERE ' + where : ''} '
+      '${where.isNotEmpty ? ' WHERE $where' : ''} '
       'ORDER BY st.saleDate ASC',
       whereArgs.isNotEmpty ? whereArgs : null,
     );
@@ -1117,9 +1117,9 @@ class DatabaseHelper {
   }
 
   // ===================== Debug Helper =====================
-  Future<void> printDbPath() async {
+  Future<String> printDbPath() async {
     final path = join(await getDatabasesPath(), "app.db");
-    print("Database is stored here: $path");
+    return path;
   }
 
   // ===================== Data Seeding & Generation =====================
@@ -1212,7 +1212,7 @@ class DatabaseHelper {
     if (products.isEmpty) return 0;
 
     // Helper to insert/accumulate store_sales for a given day
-    Future<void> _upsertDailySales(Transaction txn, DateTime day, double amount) async {
+    Future<void> upsertDailySales(Transaction txn, DateTime day, double amount) async {
       final dayStr = DateFormat('yyyy-MM-dd').format(day);
       final existing = await txn.query('store_sales', where: 'sale_date = ?', whereArgs: [dayStr]);
       if (existing.isNotEmpty) {
@@ -1285,7 +1285,7 @@ class DatabaseHelper {
         }
 
         if (dayTotal > 0) {
-          await _upsertDailySales(txn, day, dayTotal);
+          await upsertDailySales(txn, day, dayTotal);
         }
       });
     }

@@ -40,21 +40,27 @@ class LoginPageState extends State<LoginPage> {
 
       if (user != null) {
         // Login successful -> navigate to InventoryPage
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const InventoryPage()),
-        );
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const InventoryPage()),
+          );
+        }
       } else {
         // Invalid credentials
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Invalid username or password")),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Invalid username or password")),
+          );
+        }
       }
     } catch (e) {
       setState(() => isAPIcallProcess = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Login failed: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Login failed: $e")));
+      }
     }
   }
 
@@ -139,7 +145,7 @@ class LoginPageState extends State<LoginPage> {
             borderColor: Colors.white,
             borderRadius: 10,
             textColor: Colors.white,
-            hintColor: Colors.white.withOpacity(0.7),
+            hintColor: Colors.white.withValues(alpha: 0.7),
           ),
           const SizedBox(height: 10),
           FormHelper.inputFieldWidget(
@@ -152,7 +158,7 @@ class LoginPageState extends State<LoginPage> {
             borderFocusColor: Colors.white,
             borderColor: Colors.white,
             textColor: Colors.white,
-            hintColor: Colors.white.withOpacity(0.7),
+            hintColor: Colors.white.withValues(alpha: 0.7),
             borderRadius: 10,
             obscureText: hidePassword,
             suffixIcon: IconButton(

@@ -38,13 +38,17 @@ class RegisterPageState extends State<RegisterPage> {
     try {
       // Check for existing username or email
       if (await DatabaseHelper().checkUserExists(username: username)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Username already exists')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Username already exists')),
+          );
+        }
       } else if (await DatabaseHelper().checkUserExists(email: email)) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Email already exists')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Email already exists')));
+        }
       } else {
         // Save user to database
         await DatabaseHelper().insertUser(
@@ -53,19 +57,23 @@ class RegisterPageState extends State<RegisterPage> {
           password: password!,
         );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registered successfully')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registered successfully')),
+          );
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-        );
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginPage()),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Registration failed: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Registration failed: $e')));
+      }
     } finally {
       if (mounted) setState(() => isAPIcallProcess = false);
     }
