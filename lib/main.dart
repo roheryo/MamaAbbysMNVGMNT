@@ -32,6 +32,7 @@ Future<void> main() async {
     await DatabaseHelper().database;
 
     
+    // Get database path for debugging (result intentionally ignored)
     await DatabaseHelper().printDbPath();
 
     //  Trigger notifications (low stock + overdue deliveries immediately)

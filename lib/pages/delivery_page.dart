@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/pages/notification_page.dart';
 import 'package:flutter_applicationtest/pages/settings_page.dart';
@@ -33,19 +35,28 @@ class _DeliveryPageState extends State<DeliveryPage> {
           mainAxisSize: MainAxisSize.min,
           children: ["Pending", "Overdue", "Delivered", "Cancelled"]
               .map(
-                (status) => ListTile(
-                  contentPadding: EdgeInsets.zero, // Remove padding
-                  title: Text(status),
-                  leading: Radio<String>(
-                    value: status,
-                    groupValue: _selectedStatus,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedStatus = value;
-                        _filterByStatus(value);
-                      });
-                      Navigator.pop(context); // Close dialog immediately
-                    },
+                (status) => InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedStatus = status;
+                      _filterByStatus(status);
+                    });
+                    Navigator.pop(context); // Close dialog immediately
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.zero,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _selectedStatus == status 
+                            ? Icons.radio_button_checked 
+                            : Icons.radio_button_unchecked,
+                          color: _selectedStatus == status ? Colors.blue : Colors.grey,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(status),
+                      ],
+                    ),
                   ),
                 ),
               )
@@ -361,7 +372,7 @@ void _filterByStatus(String? status) {
                   const SizedBox(height: 8),
                   // Category Dropdown
                   DropdownButtonFormField<String>(
-                    value: category,
+                    initialValue: category,
                     decoration: const InputDecoration(
                       labelText: "Product Category",
                       isDense: true,
@@ -378,7 +389,7 @@ void _filterByStatus(String? status) {
                   const SizedBox(height: 8),
                   
                   DropdownButtonFormField<Map<String, dynamic>>(
-                    value: selectedProduct,
+                    initialValue: selectedProduct,
                     decoration: const InputDecoration(
                       labelText: "Product",
                       isDense: true,
@@ -414,15 +425,16 @@ void _filterByStatus(String? status) {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () async {
+                        final currentContext = context;
                         final pickedDate = await showDatePicker(
-                          context: context,
+                          context: currentContext,
                           initialDate: deliveryDate ?? DateTime.now(),
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2030),
                         );
-                        if (pickedDate != null) {
+                        if (pickedDate != null && mounted) {
                           final pickedTime = await showTimePicker(
-                            context: context,
+                            context: currentContext,
                             initialTime: TimeOfDay.fromDateTime(deliveryDate ?? DateTime.now()),
                           );
                           if (pickedTime != null) {
@@ -458,34 +470,41 @@ void _filterByStatus(String? status) {
             ),
             ElevatedButton(
               onPressed: () async {
+                final currentContext = context;
                 if (customerController.text.isEmpty ||
                     contactController.text.isEmpty ||
                     locationController.text.isEmpty ||
                     selectedProduct == null ||
                     deliveryDate == null ||
                     quantityController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Please fill all fields")),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(currentContext).showSnackBar(
+                      const SnackBar(content: Text("Please fill all fields")),
+                    );
+                  }
                   return;
                 }
 
                 final enteredQty = int.tryParse(quantityController.text);
                 if (enteredQty == null || enteredQty <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Enter a valid quantity")),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(currentContext).showSnackBar(
+                      const SnackBar(content: Text("Enter a valid quantity")),
+                    );
+                  }
                   return;
                 }
 
                 if (enteredQty > selectedProduct!['quantity']) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        "Available stock is ${selectedProduct!['quantity']}, cannot deliver $enteredQty",
+                  if (mounted) {
+                    ScaffoldMessenger.of(currentContext).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          "Available stock is ${selectedProduct!['quantity']}, cannot deliver $enteredQty",
+                        ),
                       ),
-                    ),
-                  );
+                    );
+                  }
                   return;
                 }
 
@@ -508,7 +527,7 @@ void _filterByStatus(String? status) {
 
                 await DatabaseHelper().checkLowStockProducts();
                 await _refreshDeliveriesAndCheckOverdue();
-                Navigator.pop(context);
+                if (mounted) Navigator.pop(currentContext);
               },
               child: const Text("Add"),
             ),

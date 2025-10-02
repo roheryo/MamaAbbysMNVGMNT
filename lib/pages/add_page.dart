@@ -44,6 +44,7 @@ class _AddPage extends State<AddPage> {
     String unitPrice = unitPriceController.text.trim();
 
     if (productName == null || productName.isEmpty || quantity.isEmpty || unitPrice.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all fields")),
       );
@@ -58,6 +59,8 @@ class _AddPage extends State<AddPage> {
       imagePath: _selectedImage?.path,
     );
 
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Product added successfully!")),
     );
@@ -68,12 +71,6 @@ class _AddPage extends State<AddPage> {
     );
   }
 
-  void _goBack() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const InventoryPage()),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
