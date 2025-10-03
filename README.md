@@ -6,5 +6,5 @@ INVENTORY MANAGEMENT FOR FROZEN MEATSHOP, A REMINDER APP FOR DELIVERY, FOR STOCK
 
 SET UP: DONWLOAD FLUTTER SDK, DART
 INSTALL Yaml Extension 
-Install Emulator or Use own mobile device
+Install Emulator or Use own mobile device.
 
