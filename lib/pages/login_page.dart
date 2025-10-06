@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/database_helper.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:snippet_coder_utils/FormHelper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,7 +17,6 @@ class LoginPageState extends State<LoginPage> {
   GlobalKey<FormState> globalFormKey = GlobalKey<FormState>();
   String? username;
   String? password;
-  bool isHovering = false;
 
   bool validateAndSave() {
     final form = globalFormKey.currentState;
@@ -33,27 +33,26 @@ class LoginPageState extends State<LoginPage> {
     setState(() => isAPIcallProcess = true);
 
     try {
-      // Hardcoded login credentials
+      
       if (username == "admin" && password == "123") {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+
         setState(() => isAPIcallProcess = false);
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/mainnav');
-        }
+        if (mounted) Navigator.pushReplacementNamed(context, '/mainnav');
         return;
       }
 
       
       var user = await DatabaseHelper().getUser(username!, password!);
-
       setState(() => isAPIcallProcess = false);
 
       if (user != null) {
-        
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/mainnav');
-        }
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+
+        if (mounted) Navigator.pushReplacementNamed(context, '/mainnav');
       } else {
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Invalid username or password")),
@@ -63,9 +62,9 @@ class LoginPageState extends State<LoginPage> {
     } catch (e) {
       setState(() => isAPIcallProcess = false);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Login failed: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Login failed: $e")),
+        );
       }
     }
   }
@@ -98,7 +97,6 @@ class LoginPageState extends State<LoginPage> {
   Widget _loginUI(BuildContext context) {
     return SingleChildScrollView(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
@@ -106,8 +104,6 @@ class LoginPageState extends State<LoginPage> {
             height: MediaQuery.of(context).size.height / 3,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.center,
-                end: Alignment.bottomCenter,
                 colors: [Colors.white, Colors.white],
               ),
               borderRadius: BorderRadius.only(
@@ -115,23 +111,17 @@ class LoginPageState extends State<LoginPage> {
                 bottomRight: Radius.circular(100),
               ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Align(
-                  alignment: Alignment.center,
-                  child: Image.asset(
-                    "assets/images/mamaabbys.jpg",
-                    width: 200,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ],
+            child: Center(
+              child: Image.asset(
+                "assets/images/mamaabbys.jpg",
+                width: 200,
+                fit: BoxFit.contain,
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(left: 20, bottom: 5, top: 80),
-            child: const Text(
+          const Padding(
+            padding: EdgeInsets.only(left: 20, bottom: 5, top: 80),
+            child: Text(
               "Sign in",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
@@ -151,7 +141,7 @@ class LoginPageState extends State<LoginPage> {
             borderColor: Colors.white,
             borderRadius: 10,
             textColor: Colors.white,
-            hintColor: Colors.white.withValues(alpha: 0.7),
+            hintColor: Colors.white.withOpacity(0.7),
           ),
           const SizedBox(height: 10),
           FormHelper.inputFieldWidget(
@@ -164,7 +154,7 @@ class LoginPageState extends State<LoginPage> {
             borderFocusColor: Colors.white,
             borderColor: Colors.white,
             textColor: Colors.white,
-            hintColor: Colors.white.withValues(alpha: 0.7),
+            hintColor: Colors.white.withOpacity(0.7),
             borderRadius: 10,
             obscureText: hidePassword,
             suffixIcon: IconButton(
@@ -173,15 +163,12 @@ class LoginPageState extends State<LoginPage> {
                 color: Colors.white,
               ),
               onPressed: () {
-                setState(() {
-                  hidePassword = !hidePassword;
-                });
+                setState(() => hidePassword = !hidePassword);
               },
             ),
           ),
-          const SizedBox(height: 5),
           Padding(
-            padding: const EdgeInsets.only(left: 20, right: 20, top: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             child: SizedBox(
               width: double.infinity,
               child: FormHelper.submitButton(

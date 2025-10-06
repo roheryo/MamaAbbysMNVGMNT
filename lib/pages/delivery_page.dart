@@ -3,8 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/pages/notification_page.dart';
 import 'package:flutter_applicationtest/pages/settings_page.dart';
-import 'inventory_page.dart';
-import 'sales_page.dart';
 import '../database_helper.dart';
 
 class DeliveryPage extends StatefulWidget {

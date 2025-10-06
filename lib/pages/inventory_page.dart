@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter_applicationtest/pages/add_page.dart';
 import 'package:flutter_applicationtest/pages/notification_page.dart';
-import 'package:flutter_applicationtest/pages/sales_page.dart';
-import 'package:flutter_applicationtest/pages/delivery_page.dart';
 import 'package:flutter_applicationtest/pages/settings_page.dart';
 import 'package:flutter_applicationtest/database_helper.dart';
 

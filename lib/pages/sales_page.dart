@@ -4,8 +4,7 @@ import 'package:flutter_applicationtest/pages/settings_page.dart';
 import 'package:flutter_applicationtest/database_helper.dart';
 import 'package:intl/intl.dart';
 
-import 'inventory_page.dart'; // Create this file for InventoryPage
-import 'delivery_page.dart'; // Already created earlier
+
 
 class SalesPage extends StatefulWidget {
   const SalesPage({super.key});
@@ -15,16 +14,15 @@ class SalesPage extends StatefulWidget {
 }
 
 class _SalesPageState extends State<SalesPage> {
-  // Track selected filter
+  
   String selectedFilter = "Today";
   bool hasUnread = false;
 
-  // Track picked dates
-  DateTime? selectedDate; // for Today
-  DateTime? selectedWeek; // week start
-  DateTime? selectedMonth; // month picker
-
-  // Track sales data
+  
+  DateTime? selectedDate; 
+  DateTime? selectedWeek; 
+  DateTime? selectedMonth; 
+ 
   double totalSales = 0.0;
   bool isLoading = false;
   List<Map<String, dynamic>> transactions = [];
@@ -136,7 +134,7 @@ class _SalesPageState extends State<SalesPage> {
           break;
       }
       
-      // Fetch detailed transactions for the selected range
+      
       List<Map<String, dynamic>> txns = [];
       if (startDateStr != null && endDateStr != null) {
         txns = await DatabaseHelper().fetchSalesTransactionsWithCategory(
