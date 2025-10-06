@@ -4,8 +4,7 @@ import 'package:flutter_applicationtest/pages/settings_page.dart';
 import 'package:flutter_applicationtest/database_helper.dart';
 import 'package:intl/intl.dart';
 
-import 'inventory_page.dart'; // Create this file for InventoryPage
-import 'delivery_page.dart'; // Already created earlier
+
 import '../services/forecast_service.dart';
 
 class SalesPage extends StatefulWidget {
@@ -16,16 +15,15 @@ class SalesPage extends StatefulWidget {
 }
 
 class _SalesPageState extends State<SalesPage> {
-  // Track selected filter
+  
   String selectedFilter = "Today";
   bool hasUnread = false;
 
-  // Track picked dates
-  DateTime? selectedDate; // for Today
-  DateTime? selectedWeek; // week start
-  DateTime? selectedMonth; // month picker
-
-  // Track sales data
+  
+  DateTime? selectedDate; 
+  DateTime? selectedWeek; 
+  DateTime? selectedMonth; 
+ 
   double totalSales = 0.0;
   bool isLoading = false;
   List<Map<String, dynamic>> transactions = [];
@@ -157,7 +155,7 @@ class _SalesPageState extends State<SalesPage> {
           break;
       }
       
-      // Fetch detailed transactions for the selected range
+      
       List<Map<String, dynamic>> txns = [];
       if (startDateStr != null && endDateStr != null) {
         txns = await DatabaseHelper().fetchSalesTransactionsWithCategory(
@@ -729,51 +727,6 @@ class _SalesPageState extends State<SalesPage> {
                           ),
               ),
             ),
-
-          // ===== Bottom Navigation =====
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade300)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildNavItem(
-                  icon: Icons.inventory,
-                  label: "Inventory",
-                  isActive: false,
-                  color: Colors.blue,
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const InventoryPage()),
-                    );
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.bar_chart,
-                  label: "Sales",
-                  isActive: true,
-                  color: Colors.green,
-                  onTap: () {},
-                ),
-                _buildNavItem(
-                  icon: Icons.local_shipping,
-                  label: "Delivery",
-                  isActive: false,
-                  color: Colors.orange,
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DeliveryPage()),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

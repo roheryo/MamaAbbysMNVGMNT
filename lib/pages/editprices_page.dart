@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../database_helper.dart';
+import 'settings_page.dart'; 
 
 class EditpricesPage extends StatefulWidget {
   const EditpricesPage({super.key});
@@ -57,7 +58,7 @@ class _EditPricesPage extends State<EditpricesPage> {
                 "Price of ${selectedProduct!['productName']} updated to $newPrice"),
           ),
         );
-        // Reload products to reflect change
+        
         loadProductsByCategory(selectedCategory!);
       } else {
         if (!mounted) return;
@@ -96,7 +97,12 @@ class _EditPricesPage extends State<EditpricesPage> {
               children: [
                 GestureDetector(
                   onTap: () {
-                    Navigator.pop(context);
+                    
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const SettingsPage()),
+                    );
                   },
                   child: const Icon(
                     Icons.arrow_back,
