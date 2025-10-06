@@ -53,7 +53,7 @@ class LoginPageState extends State<LoginPage> {
           Navigator.pushReplacementNamed(context, '/mainnav');
         }
       } else {
-        // ❌ Invalid credentials
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Invalid username or password")),
