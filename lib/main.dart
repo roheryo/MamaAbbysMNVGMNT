@@ -8,8 +8,9 @@ import 'package:flutter_applicationtest/pages/login_page.dart';
 import 'package:flutter_applicationtest/pages/notification_page.dart';
 import 'package:flutter_applicationtest/pages/sales_page.dart';
 import 'package:flutter_applicationtest/pages/settings_page.dart';
-import 'pages/register_page.dart';
+import 'package:flutter_applicationtest/pages/register_page.dart';
 import 'database_helper.dart';
+import 'package:flutter_applicationtest/pages/main_navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,14 +29,13 @@ Future<void> main() async {
   };
 
   try {
-    //  Initialize the database
+    // Initialize the database
     await DatabaseHelper().database;
 
-    
-    // Get database path for debugging (result intentionally ignored)
+    // Get database path for debugging
     await DatabaseHelper().printDbPath();
 
-    //  Trigger notifications (low stock + overdue deliveries immediately)
+    // Trigger notifications (low stock + overdue deliveries immediately)
     await DatabaseHelper().triggerAllNotifications();
 
     runApp(const MyApp());
@@ -88,6 +88,7 @@ class MyApp extends StatelessWidget {
         '/editprice': (context) => EditpricesPage(),
         '/addpage': (context) => AddPage(),
         '/notification': (context) => NotificationPage(),
+        '/mainnav': (context) => const MainNavigation(),
       },
     );
   }

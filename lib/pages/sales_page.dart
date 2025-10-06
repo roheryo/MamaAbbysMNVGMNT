@@ -615,51 +615,6 @@ class _SalesPageState extends State<SalesPage> {
                         ),
             ),
           ),
-
-          // ===== Bottom Navigation =====
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade300)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildNavItem(
-                  icon: Icons.inventory,
-                  label: "Inventory",
-                  isActive: false,
-                  color: Colors.blue,
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const InventoryPage()),
-                    );
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.bar_chart,
-                  label: "Sales",
-                  isActive: true,
-                  color: Colors.green,
-                  onTap: () {},
-                ),
-                _buildNavItem(
-                  icon: Icons.local_shipping,
-                  label: "Delivery",
-                  isActive: false,
-                  color: Colors.orange,
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DeliveryPage()),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

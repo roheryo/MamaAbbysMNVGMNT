@@ -929,55 +929,6 @@ void _filterByStatus(String? status) {
               },
             ),
           ),
-          // ===== BOTTOM NAV =====
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.05,
-              vertical: screenWidth * 0.03,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade300)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildNavItem(
-                  icon: Icons.inventory,
-                  label: "Inventory",
-                  isActive: false,
-                  color: Colors.blue,
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const InventoryPage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.bar_chart,
-                  label: "Sales",
-                  isActive: false,
-                  color: Colors.green,
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SalesPage()),
-                    );
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.local_shipping,
-                  label: "Delivery",
-                  isActive: true,
-                  color: Colors.orange,
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

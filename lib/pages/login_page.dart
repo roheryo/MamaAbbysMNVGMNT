@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/database_helper.dart';
-import 'package:flutter_applicationtest/pages/inventory_page.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:snippet_coder_utils/FormHelper.dart';
 
@@ -39,15 +38,12 @@ class LoginPageState extends State<LoginPage> {
       setState(() => isAPIcallProcess = false);
 
       if (user != null) {
-        // Login successful -> navigate to InventoryPage
+        // ✅ Login successful → Navigate to MainNavigation
         if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const InventoryPage()),
-          );
+          Navigator.pushReplacementNamed(context, '/mainnav');
         }
       } else {
-        // Invalid credentials
+        // ❌ Invalid credentials
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Invalid username or password")),
@@ -125,7 +121,7 @@ class LoginPageState extends State<LoginPage> {
           ),
           Padding(
             padding: const EdgeInsets.only(left: 20, bottom: 5, top: 80),
-            child: Text(
+            child: const Text(
               "Sign in",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
