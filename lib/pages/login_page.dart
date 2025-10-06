@@ -184,52 +184,6 @@ class LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.only(left: 20, right: 20, top: 5),
-            child: Row(
-              children: const [
-                Expanded(
-                  child: Divider(
-                    color: Colors.white,
-                    thickness: 1,
-                    endIndent: 10,
-                  ),
-                ),
-                Text("or", style: TextStyle(color: Colors.white)),
-                Expanded(
-                  child: Divider(color: Colors.white, thickness: 1, indent: 10),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  onEnter: (_) => setState(() => isHovering = true),
-                  onExit: (_) => setState(() => isHovering = false),
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.pushNamed(context, '/register');
-                    },
-                    child: Text(
-                      "Sign Up Here",
-                      style: TextStyle(
-                        color: isHovering ? Colors.blue[200] : Colors.white,
-                        decoration: TextDecoration.underline,
-                        decorationColor: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
