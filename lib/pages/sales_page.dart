@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import 'inventory_page.dart'; // Create this file for InventoryPage
 import 'delivery_page.dart'; // Already created earlier
+import '../services/forecast_service.dart';
 
 class SalesPage extends StatefulWidget {
   const SalesPage({super.key});
@@ -30,6 +31,8 @@ class _SalesPageState extends State<SalesPage> {
   List<Map<String, dynamic>> transactions = [];
   bool isGenerating = false;
   bool isRecomputing = false;
+  bool isForecastLoading = false;
+  List<DailyForecast> forecasts = [];
 
   Future<void> _pickTodayDate(BuildContext context) async {
     final DateTime now = DateTime.now();
@@ -81,6 +84,24 @@ class _SalesPageState extends State<SalesPage> {
         selectedMonth = DateTime(picked.year, picked.month);
       });
       _fetchSalesData();
+    }
+  }
+
+  Future<void> _fetchForecast() async {
+    setState(() => isForecastLoading = true);
+    try {
+      final data = await ForecastService().forecastNext30Days();
+      if (!mounted) return;
+      setState(() {
+        forecasts = data;
+        isForecastLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        forecasts = [];
+        isForecastLoading = false;
+      });
     }
   }
 
@@ -429,8 +450,10 @@ class _SalesPageState extends State<SalesPage> {
                           await _pickWeeklyDate(context);
                         } else if (filter == "Monthly") {
                           await _pickMonthlyDate(context);
+                        } else if (filter == "Forecast") {
+                          await _fetchForecast();
                         }
-                        
+
                         // Fetch sales data after filter change
                         _fetchSalesData();
                       },
@@ -441,7 +464,31 @@ class _SalesPageState extends State<SalesPage> {
                     ),
                   ),
                 );
-              }).toList(),
+              }).toList()
+                ..add(
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: selectedFilter == 'Forecast' ? Colors.blue : Colors.grey.shade200,
+                          foregroundColor: selectedFilter == 'Forecast' ? Colors.white : Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: () async {
+                          setState(() {
+                            selectedFilter = 'Forecast';
+                          });
+                          await _fetchForecast();
+                        },
+                        child: const Text('Forecast', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ),
             ),
           ),
 
@@ -481,7 +528,7 @@ class _SalesPageState extends State<SalesPage> {
           const SizedBox(height: 20),
 
           // Filter
-          Padding(
+          if (selectedFilter != 'Forecast') Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
               width: double.infinity,
@@ -510,45 +557,45 @@ class _SalesPageState extends State<SalesPage> {
                           ),
                         ),
                       ],
-                    )
-                  : Text(
-                      selectedFilter == "Today" && selectedDate != null
-                          ? "Sales on ${DateFormat('MMM dd, yyyy').format(selectedDate!)}: ₱${totalSales.toStringAsFixed(2)}"
-                          : selectedFilter == "Weekly" && selectedWeek != null
-                          ? "Sales for week of ${DateFormat('MMM dd').format(selectedWeek!)}: ₱${totalSales.toStringAsFixed(2)}"
-                          : selectedFilter == "Monthly" && selectedMonth != null
-                          ? "Sales for ${DateFormat('MMMM yyyy').format(selectedMonth!)}: ₱${totalSales.toStringAsFixed(2)}"
-                          : selectedFilter == "Today"
-                          ? "Total Daily Sales: ₱${totalSales.toStringAsFixed(2)}"
-                          : selectedFilter == "Weekly"
-                          ? "Total Weekly Sales: ₱${totalSales.toStringAsFixed(2)}"
-                          : "Total Monthly Sales: ₱${totalSales.toStringAsFixed(2)}",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
+                        )
+                      : Text(
+                          selectedFilter == "Today" && selectedDate != null
+                              ? "Sales on ${DateFormat('MMM dd, yyyy').format(selectedDate!)}: ₱${totalSales.toStringAsFixed(2)}"
+                              : selectedFilter == "Weekly" && selectedWeek != null
+                              ? "Sales for week of ${DateFormat('MMM dd').format(selectedWeek!)}: ₱${totalSales.toStringAsFixed(2)}"
+                              : selectedFilter == "Monthly" && selectedMonth != null
+                              ? "Sales for ${DateFormat('MMMM yyyy').format(selectedMonth!)}: ₱${totalSales.toStringAsFixed(2)}"
+                              : selectedFilter == "Today"
+                              ? "Total Daily Sales: ₱${totalSales.toStringAsFixed(2)}"
+                              : selectedFilter == "Weekly"
+                              ? "Total Weekly Sales: ₱${totalSales.toStringAsFixed(2)}"
+                              : "Total Monthly Sales: ₱${totalSales.toStringAsFixed(2)}",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
             ),
           ),
 
-          const SizedBox(height: 12),
+          if (selectedFilter != 'Forecast') const SizedBox(height: 12),
 
           // Transactions header
-          Padding(
+          if (selectedFilter != 'Forecast') Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 selectedFilter == "Today" && (selectedDate != null)
-                    ? "Transactions on ${DateFormat('MMMM dd, yyyy').format(selectedDate!)}"
-                    : selectedFilter == "Today"
-                    ? "Transactions on ${DateFormat('MMMM dd, yyyy').format(DateTime.now())}"
-                    : selectedFilter == "Weekly" && selectedWeek != null
-                    ? "Transactions for week of ${DateFormat('MMM dd').format(selectedWeek!)}"
-                    : selectedFilter == "Monthly" && selectedMonth != null
-                    ? "Transactions for ${DateFormat('MMMM yyyy').format(selectedMonth!)}"
-                    : "Transactions",
+                        ? "Transactions on ${DateFormat('MMMM dd, yyyy').format(selectedDate!)}"
+                        : selectedFilter == "Today"
+                            ? "Transactions on ${DateFormat('MMMM dd, yyyy').format(DateTime.now())}"
+                            : selectedFilter == "Weekly" && selectedWeek != null
+                                ? "Transactions for week of ${DateFormat('MMM dd').format(selectedWeek!)}"
+                                : selectedFilter == "Monthly" && selectedMonth != null
+                                    ? "Transactions for ${DateFormat('MMMM yyyy').format(selectedMonth!)}"
+                                    : "Transactions",
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -557,64 +604,131 @@ class _SalesPageState extends State<SalesPage> {
             ),
           ),
 
-          const SizedBox(height: 8),
+          if (selectedFilter != 'Forecast') const SizedBox(height: 8),
 
           // Transactions list
-          Expanded(
+          if (selectedFilter != 'Forecast') Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: isLoading
                   ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                   : transactions.isEmpty
-                      ? const Center(
-                          child: Text(
-                            "No transactions found.",
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        )
-                      : ListView.separated(
-                          itemCount: transactions.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final t = transactions[index];
-                            final name = (t['productName'] ?? '').toString();
-                            final category = (t['category'] ?? 'Unknown').toString();
-                            final qty = (t['quantity'] as num?)?.toInt() ?? 0;
-                            final total = (t['totalAmount'] as num?)?.toDouble() ?? 0.0;
-                            final saleDateRaw = t['saleDate']?.toString();
-                            DateTime? saleDt = DateTime.tryParse(saleDateRaw ?? '');
-                            final dateTimeLabel = saleDt != null
-                                ? DateFormat('MMM dd, yyyy, hh:mm a').format(saleDt)
-                                : '';
+                          ? const Center(
+                              child: Text(
+                                "No transactions found.",
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: transactions.length,
+                              separatorBuilder: (_, _) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final t = transactions[index];
+                                final name = (t['productName'] ?? '').toString();
+                                final category = (t['category'] ?? 'Unknown').toString();
+                                final qty = (t['quantity'] as num?)?.toInt() ?? 0;
+                                final total = (t['totalAmount'] as num?)?.toDouble() ?? 0.0;
+                                final saleDateRaw = t['saleDate']?.toString();
+                                DateTime? saleDt = DateTime.tryParse(saleDateRaw ?? '');
+                                final dateTimeLabel = saleDt != null
+                                    ? DateFormat('MMM dd, yyyy, hh:mm a').format(saleDt)
+                                    : '';
 
-                            return ListTile(
-                              dense: true,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
-                              title: Text(
-                                name,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Text(
-                                dateTimeLabel.isNotEmpty
-                                    ? "$category • $dateTimeLabel"
-                                    : category,
-                              ),
-                              trailing: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text("x$qty"),
-                                  Text(
-                                    "₱${total.toStringAsFixed(2)}",
+                                return ListTile(
+                                  dense: true,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                                  title: Text(
+                                    name,
                                     style: const TextStyle(fontWeight: FontWeight.bold),
                                   ),
-                                ],
-                              ),
-                            );
-                          },
+                                  subtitle: Text(
+                                    dateTimeLabel.isNotEmpty
+                                        ? "$category • $dateTimeLabel"
+                                        : category,
+                                  ),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text("x$qty"),
+                                      Text(
+                                        "₱${total.toStringAsFixed(2)}",
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
                         ),
             ),
           ),
+
+          if (selectedFilter == 'Forecast')
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: isForecastLoading
+                    ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                    : forecasts.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No forecast available. Ensure sales data exists.',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.blue, width: 1),
+                                ),
+                                child: const Text(
+                                  '30-Day Sales Forecast (auto-refreshes daily based on latest sales)',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Expanded(
+                                child: ListView.separated(
+                                  itemCount: forecasts.length,
+                                  separatorBuilder: (_, __) => const Divider(height: 1),
+                                  itemBuilder: (context, index) {
+                                    final f = forecasts[index];
+                                    return ListTile(
+                                      dense: true,
+                                      title: Text(DateFormat('MMM dd, yyyy').format(f.date), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      trailing: Text(
+                                        '₱${f.predictedSales.toStringAsFixed(2)}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: ElevatedButton.icon(
+                                  onPressed: isForecastLoading ? null : _fetchForecast,
+                                  icon: isForecastLoading
+                                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                      : const Icon(Icons.refresh),
+                                  label: Text(isForecastLoading ? 'Refreshing...' : 'Refresh Forecast'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+              ),
+            ),
 
           // ===== Bottom Navigation =====
           Container(
