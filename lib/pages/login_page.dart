@@ -33,12 +33,22 @@ class LoginPageState extends State<LoginPage> {
     setState(() => isAPIcallProcess = true);
 
     try {
+      // Hardcoded login credentials
+      if (username == "admin" && password == "123") {
+        setState(() => isAPIcallProcess = false);
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/mainnav');
+        }
+        return;
+      }
+
+      
       var user = await DatabaseHelper().getUser(username!, password!);
 
       setState(() => isAPIcallProcess = false);
 
       if (user != null) {
-        // ✅ Login successful → Navigate to MainNavigation
+        
         if (mounted) {
           Navigator.pushReplacementNamed(context, '/mainnav');
         }
