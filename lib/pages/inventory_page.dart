@@ -632,7 +632,7 @@ Widget build(BuildContext context) {
           ),
           const SizedBox(height: 20),
           Expanded(
-            child: SingleChildScrollView( // ✅ Added scroll safety for smaller devices
+            child: SingleChildScrollView( 
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Column(
@@ -728,8 +728,8 @@ Widget build(BuildContext context) {
                           ? const Center(child: Text("No products found."))
                           : ListView.builder(
                               physics:
-                                  const NeverScrollableScrollPhysics(), // ✅ Prevent nested scroll conflict
-                              shrinkWrap: true, // ✅ Make list fit content height
+                                  const NeverScrollableScrollPhysics(), 
+                              shrinkWrap: true, 
                               padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
                               itemCount: products.length,
                               itemBuilder: (context, index) {

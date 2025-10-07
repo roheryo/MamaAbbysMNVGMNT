@@ -3,8 +3,6 @@ import 'package:flutter_applicationtest/pages/inventory_page.dart';
 import 'package:flutter_applicationtest/pages/sales_page.dart';
 import 'package:flutter_applicationtest/pages/delivery_page.dart';
 
-
-
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
 
@@ -31,12 +29,19 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() => _selectedIndex = index);
-        },
-        children: _pages,
+      body: SafeArea(
+        child: PageView(
+          controller: _pageController,
+          onPageChanged: (index) {
+            setState(() => _selectedIndex = index);
+          },
+          children: _pages.map((page) {
+            // Wrap each page in a Builder to ensure context works for Navigator.push
+            return Builder(
+              builder: (context) => page,
+            );
+          }).toList(),
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(

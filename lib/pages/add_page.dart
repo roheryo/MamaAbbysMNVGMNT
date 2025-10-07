@@ -71,17 +71,18 @@ class _AddPage extends State<AddPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    // Initialize categories once
-    if (categories.isEmpty) {
-      categories = dbHelper.catalogCategories;
-      if (categories.isNotEmpty && !categories.contains(selectedCategory)) {
-        selectedCategory = categories.first;
-      }
+Widget build(BuildContext context) {
+  // Initialize categories once
+  if (categories.isEmpty) {
+    categories = dbHelper.catalogCategories;
+    if (categories.isNotEmpty && !categories.contains(selectedCategory)) {
+      selectedCategory = categories.first;
     }
+  }
 
-    return Scaffold(
-      body: Column(
+  return Scaffold(
+    body: SafeArea( // <-- Wrap everything in SafeArea
+      child: Column(
         children: [
           // ===== Header =====
           Container(
@@ -156,7 +157,7 @@ class _AddPage extends State<AddPage> {
 
                     const SizedBox(height: 16),
 
-                    // Product Name (text field instead of dropdown)
+                    // Product Name
                     const Text("Product Name",
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
@@ -261,6 +262,7 @@ class _AddPage extends State<AddPage> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
