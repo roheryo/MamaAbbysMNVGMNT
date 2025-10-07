@@ -9,7 +9,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  // Show logout confirmation dialog
+ 
   void _showLogoutDialog() {
     showDialog(
       context: context,
@@ -20,13 +20,13 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); 
               },
               child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); 
                 _performLogout();
               },
               child: const Text(
@@ -40,16 +40,16 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Perform the actual logout
+  
   void _performLogout() {
-    // Clear navigation stack and navigate to login page
+    
     Navigator.of(context).pushNamedAndRemoveUntil(
       '/login',
       (Route<dynamic> route) => false,
     );
   }
 
-  // Helper widget for clickable options
+  
   Widget _buildOption({
     required String title,
     required String subtitle,
@@ -71,7 +71,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, // align text left
+                crossAxisAlignment: CrossAxisAlignment.start, 
                 children: [
                   Text(
                     title,
@@ -100,80 +100,82 @@ class _SettingsPageState extends State<SettingsPage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      body: Column(
-        children: [
-          // ===== Header =====
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.04,
-              vertical: 16,
-            ),
-            color: Colors.white,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                // <-- Back Button -->
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context); // Go back to previous page
-                  },
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.blue,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  "SETTINGS",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // ===== Options aligned to the left =====
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start, // align children left
+      body: SafeArea( 
+        child: Column(
+          children: [
+            // ===== Header =====
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.04,
+                vertical: 16,
+              ),
+              color: Colors.white,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  _buildOption(
-                    title: "Edit Prices",
-                    subtitle: "Manage Product Prices",
+                 
+                  GestureDetector(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const EditpricesPage(),
-                        ),
-                      );
+                      Navigator.pop(context); 
                     },
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.blue,
+                      size: 28,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  _buildOption(
-                    title: "Logout",
-                    subtitle: "Sign out in your account",
-                    onTap: () {
-                      _showLogoutDialog();
-                    },
+                  const SizedBox(width: 12),
+                  const Text(
+                    "SETTINGS",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 20),
+
+           
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start, 
+                  children: [
+                    _buildOption(
+                      title: "Edit Prices",
+                      subtitle: "Manage Product Prices",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const EditpricesPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildOption(
+                      title: "Logout",
+                      subtitle: "Sign out in your account",
+                      onTap: () {
+                        _showLogoutDialog();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

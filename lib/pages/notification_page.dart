@@ -156,7 +156,7 @@ class _NotificationPage extends State<NotificationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea( // <-- Added SafeArea to respect status bar and device edges
+      body: SafeArea( 
         child: Column(
           children: [
             // ===== Header =====
