@@ -465,6 +465,38 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
+void _viewImage(String imagePath) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                child: Image.file(
+                  File(imagePath),
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            Positioned(
+              top: 30,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
   void _filterProducts(String value) {
     setState(() {
       products = allProducts.where((p) {
@@ -720,27 +752,30 @@ class _InventoryPageState extends State<InventoryPage> {
                                   final String? imagePath = product['imagePath'] as String?;
                                   final bool hasImage = imagePath != null && imagePath.isNotEmpty && File(imagePath).existsSync();
                                   if (hasImage) {
-                                    return ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.file(
-                                        File(imagePath),
-                                        width: 60,
-                                        height: 60,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            width: 60,
-                                            height: 60,
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey.shade300,
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(color: Colors.grey.shade500),
-                                            ),
-                                            child: const Center(
-                                              child: Icon(Icons.image, color: Colors.grey),
-                                            ),
-                                          );
-                                        },
+                                    return GestureDetector(
+                                      onTap: () => _viewImage(imagePath),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          File(imagePath),
+                                          width: 60,
+                                          height: 60,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container(
+                                              width: 60,
+                                              height: 60,
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey.shade300,
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: Colors.grey.shade500),
+                                              ),
+                                              child: const Center(
+                                                child: Icon(Icons.image, color: Colors.grey),
+                                              ),
+                                            );
+                                          },
+                                        ),
                                       ),
                                     );
                                   }
