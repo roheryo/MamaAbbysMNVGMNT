@@ -1333,7 +1333,7 @@ class DatabaseHelper {
     });
   }
 
-  Future<void> insertOrAccumulateInventoryProduct({
+ Future<void> insertOrAccumulateInventoryProduct({
   required String productName,
   required String category,
   required int quantity,
@@ -1342,35 +1342,43 @@ class DatabaseHelper {
 }) async {
   final db = await database;
 
-  // Check for an exact (case-sensitive) match in product name, category, and unit price
-  final existing = await db.query(
+  final cleanName = productName.trim();
+  final cleanCategory = category.trim();
+  final roundedPrice = double.parse(unitPrice.toStringAsFixed(2));
+
+  
+  final existingProducts = await db.query(
     'inventory',
-    where: 'productName = ? AND category = ? AND unitPrice = ?',
-    whereArgs: [productName, category, unitPrice],
+    where:
+        'LOWER(productName) = LOWER(?) AND LOWER(category) = LOWER(?) AND ABS(unitPrice - ?) < 0.01',
+    whereArgs: [cleanName, cleanCategory, roundedPrice],
   );
 
-  if (existing.isNotEmpty) {
-    // If product exists, add quantity to existing
-    final existingProduct = existing.first;
-    final updatedQuantity = (existingProduct['quantity'] as int) + quantity;
+  if (existingProducts.isNotEmpty) {
+    
+    final existing = existingProducts.first;
+    final int existingQty = existing['quantity'] as int;
+    final int newQty = existingQty + quantity;
 
     await db.update(
       'inventory',
-      {'quantity': updatedQuantity},
+      {'quantity': newQty},
       where: 'id = ?',
-      whereArgs: [existingProduct['id']],
+      whereArgs: [existing['id']],
     );
   } else {
-    // Otherwise, insert a new product record
+    
     await db.insert('inventory', {
-      'productName': productName,
-      'category': category,
+      'productName': cleanName,
+      'category': cleanCategory,
       'quantity': quantity,
-      'unitPrice': unitPrice,
+      'unitPrice': roundedPrice,
       'imagePath': imagePath,
     });
   }
 }
+
+
 
 
 
