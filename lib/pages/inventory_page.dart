@@ -109,23 +109,50 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   Future<void> _deleteSelected() async {
-    if (selectedProducts.isEmpty) return;
+  if (selectedProducts.isEmpty) return;
 
-    final db = DatabaseHelper();
-    List<int> idsToDelete =
-        selectedProducts.map((i) => products[i]['id'] as int).toList();
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('Are you sure you want to delete the selected product(s)?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+               foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
 
-    for (var id in idsToDelete) {
-      await db.deleteProduct(id);
-    }
+  if (confirm != true) return; 
 
-    await _loadProducts();
+  final db = DatabaseHelper();
+  List<int> idsToDelete =
+      selectedProducts.map((i) => products[i]['id'] as int).toList();
 
-    setState(() {
-      selectedProducts.clear();
-      isSelectionMode = false;
-    });
+  for (var id in idsToDelete) {
+    await db.deleteProduct(id);
   }
+
+  await _loadProducts();
+
+  setState(() {
+    selectedProducts.clear();
+    isSelectionMode = false;
+  });
+}
+
 
   Future<void> _showSellModal(Map<String, dynamic> product) async {
     final int currentStock = product['quantity'] as int;
