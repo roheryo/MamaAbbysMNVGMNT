@@ -88,7 +88,7 @@ class _AddPageState extends State<AddPage> {
                 children: [
                   GestureDetector(
                     onTap: () {
-                      Navigator.pop(context); // <-- Proper back navigation
+                      Navigator.pop(context); 
                     },
                     child: const Icon(
                       Icons.arrow_back,
