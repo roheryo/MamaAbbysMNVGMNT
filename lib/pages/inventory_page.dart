@@ -48,17 +48,21 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   void _sortProducts(List<Map<String, dynamic>> list) {
-    list.sort((a, b) {
-      final qtyA = a['quantity'] as int;
-      final qtyB = b['quantity'] as int;
-      final aLow = qtyA < 7;
-      final bLow = qtyB < 7;
+  list.sort((a, b) {
+    final qtyA = a['quantity'] as int;
+    final qtyB = b['quantity'] as int;
+    final aLow = qtyA < 7;
+    final bLow = qtyB < 7;
 
-      if (aLow && !bLow) return -1;
-      if (!aLow && bLow) return 1;
-      return 0;
-    });
-  }
+    if (aLow && !bLow) return -1;
+    if (!aLow && bLow) return 1;
+    if (aLow && bLow) return qtyA.compareTo(qtyB);
+
+  
+    return qtyA.compareTo(qtyB);
+  });
+}
+
 
   Future<void> _loadProducts() async {
     final db = DatabaseHelper();
