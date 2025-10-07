@@ -1333,6 +1333,47 @@ class DatabaseHelper {
     });
   }
 
+  Future<void> insertOrAccumulateInventoryProduct({
+  required String productName,
+  required String category,
+  required int quantity,
+  required double unitPrice,
+  String? imagePath,
+}) async {
+  final db = await database;
+
+  // Check for an exact (case-sensitive) match in product name, category, and unit price
+  final existing = await db.query(
+    'inventory',
+    where: 'productName = ? AND category = ? AND unitPrice = ?',
+    whereArgs: [productName, category, unitPrice],
+  );
+
+  if (existing.isNotEmpty) {
+    // If product exists, add quantity to existing
+    final existingProduct = existing.first;
+    final updatedQuantity = (existingProduct['quantity'] as int) + quantity;
+
+    await db.update(
+      'inventory',
+      {'quantity': updatedQuantity},
+      where: 'id = ?',
+      whereArgs: [existingProduct['id']],
+    );
+  } else {
+    // Otherwise, insert a new product record
+    await db.insert('inventory', {
+      'productName': productName,
+      'category': category,
+      'quantity': quantity,
+      'unitPrice': unitPrice,
+      'imagePath': imagePath,
+    });
+  }
+}
+
+
+
   /// Internal helper to recompute aggregate for a date within an existing transaction.
   Future<void> _recomputeStoreSalesForDateTx(Transaction txn, String date) async {
     DateTime dayStart;

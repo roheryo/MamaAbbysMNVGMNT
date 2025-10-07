@@ -14,9 +14,8 @@ class AddPage extends StatefulWidget {
 class _AddPage extends State<AddPage> {
   String selectedCategory = 'Pork';
   List<String> categories = [];
-  String? selectedProductName;
-  List<String> productOptions = [];
 
+  final TextEditingController productNameController = TextEditingController();
   final TextEditingController quantityController = TextEditingController();
   final TextEditingController unitPriceController = TextEditingController();
 
@@ -39,11 +38,11 @@ class _AddPage extends State<AddPage> {
 
   // Save Product
   Future<void> _saveProduct() async {
-    String? productName = selectedProductName;
+    String productName = productNameController.text.trim();
     String quantity = quantityController.text.trim();
     String unitPrice = unitPriceController.text.trim();
 
-    if (productName == null || productName.isEmpty || quantity.isEmpty || unitPrice.isEmpty) {
+    if (productName.isEmpty || quantity.isEmpty || unitPrice.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all fields")),
@@ -71,20 +70,16 @@ class _AddPage extends State<AddPage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // Ensure categories are initialized once (guard if hot-reload)
+    // Initialize categories once
     if (categories.isEmpty) {
       categories = dbHelper.catalogCategories;
       if (categories.isNotEmpty && !categories.contains(selectedCategory)) {
         selectedCategory = categories.first;
       }
-      productOptions = dbHelper.getProductsForCategory(selectedCategory);
-      if (productOptions.isNotEmpty) {
-        selectedProductName ??= productOptions.first;
-      }
     }
+
     return Scaffold(
       body: Column(
         children: [
@@ -108,7 +103,6 @@ class _AddPage extends State<AddPage> {
                     size: 28,
                   ),
                 ),
-
                 const SizedBox(width: 16),
                 const Text(
                   "Add Product",
@@ -138,7 +132,7 @@ class _AddPage extends State<AddPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Dropdown for category
+                    // Category Dropdown
                     const Text("Select Product Category",
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
@@ -155,8 +149,6 @@ class _AddPage extends State<AddPage> {
                         if (newValue != null) {
                           setState(() {
                             selectedCategory = newValue;
-                            productOptions = dbHelper.getProductsForCategory(selectedCategory);
-                            selectedProductName = productOptions.isNotEmpty ? productOptions.first : null;
                           });
                         }
                       },
@@ -164,30 +156,26 @@ class _AddPage extends State<AddPage> {
 
                     const SizedBox(height: 16),
 
-                    // Product Name (dependent dropdown)
+                    // Product Name (text field instead of dropdown)
                     const Text("Product Name",
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    DropdownButton<String>(
-                      value: selectedProductName,
-                      isExpanded: true,
-                      hint: const Text("Select product"),
-                      items: productOptions.map((String product) {
-                        return DropdownMenuItem<String>(
-                          value: product,
-                          child: Text(product),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          selectedProductName = newValue;
-                        });
-                      },
+                    TextField(
+                      controller: productNameController,
+                      decoration: InputDecoration(
+                        hintText: "Enter product name",
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 16),
 
-                    // Product Image Picker
+                    // Product Image
                     const Text("Product Image",
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
