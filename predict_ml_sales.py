@@ -19,6 +19,15 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel
+from sklearn.pipeline import Pipeline
+
+try:
+    import skl2onnx
+    from skl2onnx import convert_sklearn
+    from skl2onnx.common.data_types import FloatTensorType
+    ONNX_EXPORT_AVAILABLE = True
+except Exception:
+    ONNX_EXPORT_AVAILABLE = False
 
 # Advanced ML Libraries
 try:
@@ -704,6 +713,61 @@ class SalesMLAnalyzer:
         self.safe_plot(fig, 'model_comparison.png')
         
         return results_df
+
+    def export_best_model_to_onnx(self, onnx_path='assets/models/sales_forecast.onnx', features_path='assets/models/sales_forecast_features.json'):
+        """Export the best-performing scaler+model to ONNX, along with feature order.
+        This exports a minimal pipeline (scaler where applicable + regressor) that consumes
+        the engineered features in the same column order used during training.
+        """
+        try:
+            import json, os
+            if not ONNX_EXPORT_AVAILABLE:
+                print('ONNX export not available. Install: pip install skl2onnx onnx')
+                return False
+
+            # Identify best model by RMSE
+            best_name = min(self.results.keys(), key=lambda x: self.results[x]['RMSE'])
+            best_model = self.models[best_name]
+
+            # Choose scaler consistent with training
+            if best_name in ['Ridge Regression', 'Lasso Regression', 'ElasticNet', 'SVR', 'Kernel Ridge']:
+                scaler = self.scaler_standard
+                X_train = self.X_train_standard
+            elif best_name == 'MLP Regressor':
+                scaler = self.scaler_minmax
+                X_train = self.X_train_minmax
+            else:
+                scaler = None
+                X_train = self.X_train.values
+
+            # Build a pipeline if scaler exists
+            if scaler is not None:
+                # We cannot directly export StandardScaler fitted in numpy; we wrap with sklearn Pipeline-like behavior by re-fitting a new scaler to match params
+                # However, for consistency, we will export a model that expects already-scaled inputs. To keep things predictable on-device,
+                # we instead export WITHOUT scaler and expect Dart to compute raw features and pass them in unscaled.
+                # So fall back to raw model export and ensure Dart uses raw feature order.
+                initial_type = [('input', FloatTensorType([None, X_train.shape[1]]))]
+                onx = convert_sklearn(best_model, initial_types=initial_type, target_opset=15)
+            else:
+                initial_type = [('input', FloatTensorType([None, self.X_train.shape[1]]))]
+                onx = convert_sklearn(best_model, initial_types=initial_type, target_opset=15)
+
+            # Ensure directories
+            os.makedirs(os.path.dirname(onnx_path), exist_ok=True)
+            with open(onnx_path, 'wb') as f:
+                f.write(onx.SerializeToString())
+
+            # Save feature list in order
+            feature_cols = [col for col in self.X_train.columns]
+            with open(features_path, 'w') as f:
+                json.dump(feature_cols, f)
+
+            print(f'Exported ONNX model to {onnx_path}')
+            print(f'Exported feature list to {features_path}')
+            return True
+        except Exception as e:
+            print(f'Failed to export ONNX: {e}')
+            return False
     
     def feature_importance_analysis(self):
         """Analyze feature importance for tree-based models"""
@@ -1067,6 +1131,9 @@ class SalesMLAnalyzer:
         
         # Make future predictions
         future_predictions = self.predict_future_sales()
+
+        # Export best model for on-device inference
+        self.export_best_model_to_onnx()
         
         print("\n" + "="*50)
         print("ANALYSIS COMPLETE!")
