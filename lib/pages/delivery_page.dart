@@ -257,16 +257,44 @@ void _filterByStatus(String? status) {
 }
 
   Future<void> _deleteSelected() async {
-    final db = DatabaseHelper();
-    for (var id in selectedDeliveries) {
-      await db.deleteDelivery(id);
-    }
-    await _refreshDeliveriesAndCheckOverdue();
-    setState(() {
-      selectedDeliveries.clear();
-      isSelectionMode = false;
-    });
+  if (selectedDeliveries.isEmpty) return;
+
+  // Show confirmation dialog
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Confirm Delete'),
+      content: const Text('Are you sure you want to delete?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false), 
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true), 
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm != true) return; 
+
+  final db = DatabaseHelper();
+  for (var id in selectedDeliveries) {
+    await db.deleteDelivery(id);
   }
+  await _refreshDeliveriesAndCheckOverdue();
+  setState(() {
+    selectedDeliveries.clear();
+    isSelectionMode = false;
+  });
+}
+
 
   Future<void> _markAsDone(int id) async {
     final db = DatabaseHelper();
