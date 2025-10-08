@@ -21,7 +21,11 @@ dependencies:
   sqflite: ^2.3.3
   path: ^1.9.0
   sqflite_common_ffi: ^2.3.3
+  flutter_onnxruntime: ^1.5.2
   shared_preferences: ^2.5.3
+  tflite_flutter: ^0.11.0
+  fl_chart: ^1.1.1
+  # removed tflite_flutter_helper: using raw Float32List with tflite_flutter instead
 
 dev_dependencies:
   flutter_test:
@@ -34,6 +38,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/models/
 
 flutter_icons:
   android: true
