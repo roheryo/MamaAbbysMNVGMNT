@@ -1333,6 +1333,55 @@ class DatabaseHelper {
     });
   }
 
+ Future<void> insertOrAccumulateInventoryProduct({
+  required String productName,
+  required String category,
+  required int quantity,
+  required double unitPrice,
+  String? imagePath,
+}) async {
+  final db = await database;
+
+  final cleanName = productName.trim();
+  final cleanCategory = category.trim();
+  final roundedPrice = double.parse(unitPrice.toStringAsFixed(2));
+
+  
+  final existingProducts = await db.query(
+    'inventory',
+    where:
+        'LOWER(productName) = LOWER(?) AND LOWER(category) = LOWER(?) AND ABS(unitPrice - ?) < 0.01',
+    whereArgs: [cleanName, cleanCategory, roundedPrice],
+  );
+
+  if (existingProducts.isNotEmpty) {
+    
+    final existing = existingProducts.first;
+    final int existingQty = existing['quantity'] as int;
+    final int newQty = existingQty + quantity;
+
+    await db.update(
+      'inventory',
+      {'quantity': newQty},
+      where: 'id = ?',
+      whereArgs: [existing['id']],
+    );
+  } else {
+    
+    await db.insert('inventory', {
+      'productName': cleanName,
+      'category': cleanCategory,
+      'quantity': quantity,
+      'unitPrice': roundedPrice,
+      'imagePath': imagePath,
+    });
+  }
+}
+
+
+
+
+
   /// Internal helper to recompute aggregate for a date within an existing transaction.
   Future<void> _recomputeStoreSalesForDateTx(Transaction txn, String date) async {
     DateTime dayStart;

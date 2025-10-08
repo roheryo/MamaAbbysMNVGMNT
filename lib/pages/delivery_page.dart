@@ -3,8 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_applicationtest/pages/notification_page.dart';
 import 'package:flutter_applicationtest/pages/settings_page.dart';
-import 'inventory_page.dart';
-import 'sales_page.dart';
 import '../database_helper.dart';
 
 class DeliveryPage extends StatefulWidget {
@@ -132,6 +130,7 @@ void _filterByStatus(String? status) {
   final db = DatabaseHelper();
   await db.checkOverdueDeliveries(overdueAfter: Duration.zero);
   deliveries = await db.fetchDeliveries();
+  if (!mounted) return;
   setState(() {});
 
   // toast for overdue delivery notifications
@@ -147,6 +146,7 @@ void _filterByStatus(String? status) {
     if (match != null) {
       final customerName = match.group(1);
       if (customerName != null && mounted) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Your Delivery For $customerName is overdue!"),
@@ -167,6 +167,7 @@ void _filterByStatus(String? status) {
         if (id is int) {
           await db.markNotificationsReadByIds([id]);
         }
+        if (!mounted) return;
         await _refreshUnread();
       }
     }
@@ -259,16 +260,44 @@ void _filterByStatus(String? status) {
 }
 
   Future<void> _deleteSelected() async {
-    final db = DatabaseHelper();
-    for (var id in selectedDeliveries) {
-      await db.deleteDelivery(id);
-    }
-    await _refreshDeliveriesAndCheckOverdue();
-    setState(() {
-      selectedDeliveries.clear();
-      isSelectionMode = false;
-    });
+  if (selectedDeliveries.isEmpty) return;
+
+  // Show confirmation dialog
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Confirm Delete'),
+      content: const Text('Are you sure you want to delete?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false), 
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true), 
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm != true) return; 
+
+  final db = DatabaseHelper();
+  for (var id in selectedDeliveries) {
+    await db.deleteDelivery(id);
   }
+  await _refreshDeliveriesAndCheckOverdue();
+  setState(() {
+    selectedDeliveries.clear();
+    isSelectionMode = false;
+  });
+}
+
 
   Future<void> _markAsDone(int id) async {
     final db = DatabaseHelper();
@@ -927,55 +956,6 @@ void _filterByStatus(String? status) {
                     ),
                   );
               },
-            ),
-          ),
-          // ===== BOTTOM NAV =====
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth * 0.05,
-              vertical: screenWidth * 0.03,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade300)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildNavItem(
-                  icon: Icons.inventory,
-                  label: "Inventory",
-                  isActive: false,
-                  color: Colors.blue,
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const InventoryPage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.bar_chart,
-                  label: "Sales",
-                  isActive: false,
-                  color: Colors.green,
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SalesPage()),
-                    );
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.local_shipping,
-                  label: "Delivery",
-                  isActive: true,
-                  color: Colors.orange,
-                  onTap: () {},
-                ),
-              ],
             ),
           ),
         ],

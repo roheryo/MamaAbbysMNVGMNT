@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter_applicationtest/pages/add_page.dart';
 import 'package:flutter_applicationtest/pages/notification_page.dart';
-import 'package:flutter_applicationtest/pages/sales_page.dart';
-import 'package:flutter_applicationtest/pages/delivery_page.dart';
 import 'package:flutter_applicationtest/pages/settings_page.dart';
 import 'package:flutter_applicationtest/database_helper.dart';
 
@@ -50,17 +48,21 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   void _sortProducts(List<Map<String, dynamic>> list) {
-    list.sort((a, b) {
-      final qtyA = a['quantity'] as int;
-      final qtyB = b['quantity'] as int;
-      final aLow = qtyA < 7;
-      final bLow = qtyB < 7;
+  list.sort((a, b) {
+    final qtyA = a['quantity'] as int;
+    final qtyB = b['quantity'] as int;
+    final aLow = qtyA < 7;
+    final bLow = qtyB < 7;
 
-      if (aLow && !bLow) return -1;
-      if (!aLow && bLow) return 1;
-      return 0;
-    });
-  }
+    if (aLow && !bLow) return -1;
+    if (!aLow && bLow) return 1;
+    if (aLow && bLow) return qtyA.compareTo(qtyB);
+
+  
+    return qtyA.compareTo(qtyB);
+  });
+}
+
 
   Future<void> _loadProducts() async {
     final db = DatabaseHelper();
@@ -107,23 +109,50 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   Future<void> _deleteSelected() async {
-    if (selectedProducts.isEmpty) return;
+  if (selectedProducts.isEmpty) return;
 
-    final db = DatabaseHelper();
-    List<int> idsToDelete =
-        selectedProducts.map((i) => products[i]['id'] as int).toList();
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('Are you sure you want to delete the selected product(s)?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+               foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
 
-    for (var id in idsToDelete) {
-      await db.deleteProduct(id);
-    }
+  if (confirm != true) return; 
 
-    await _loadProducts();
+  final db = DatabaseHelper();
+  List<int> idsToDelete =
+      selectedProducts.map((i) => products[i]['id'] as int).toList();
 
-    setState(() {
-      selectedProducts.clear();
-      isSelectionMode = false;
-    });
+  for (var id in idsToDelete) {
+    await db.deleteProduct(id);
   }
+
+  await _loadProducts();
+
+  setState(() {
+    selectedProducts.clear();
+    isSelectionMode = false;
+  });
+}
+
 
   Future<void> _showSellModal(Map<String, dynamic> product) async {
     final int currentStock = product['quantity'] as int;
@@ -463,6 +492,38 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
+void _viewImage(String imagePath) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                child: Image.file(
+                  File(imagePath),
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            Positioned(
+              top: 30,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
   void _filterProducts(String value) {
     setState(() {
       products = allProducts.where((p) {
@@ -491,11 +552,12 @@ class _InventoryPageState extends State<InventoryPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+Widget build(BuildContext context) {
+  final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      body: Column(
+  return Scaffold(
+    body: SafeArea( // ✅ Prevents overlap with status bar
+      child: Column(
         children: [
           Container(
             width: double.infinity,
@@ -596,247 +658,244 @@ class _InventoryPageState extends State<InventoryPage> {
             ),
           ),
           const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: "Search...",
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.grey.shade200,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 16,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              onChanged: _filterProducts,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "All Categories",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                DropdownButton<String>(
-                  value: selectedCategory,
-                  icon: const Icon(Icons.arrow_drop_down),
-                  items: categories.map((String category) {
-                    return DropdownMenuItem<String>(
-                      value: category,
-                      child: Text(category),
-                    );
-                  }).toList(),
-                  onChanged: _filterByCategory,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                ElevatedButton(
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AddPage()),
-                    );
-                    _loadProducts();
-                  },
-                  child: const Text("Add"),
-                ),
-                const Spacer(),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      isSelectionMode = !isSelectionMode;
-                      selectedProducts.clear();
-                    });
-                  },
-                  child: Text(isSelectionMode ? "Cancel" : "Select"),
-                ),
-                const SizedBox(width: 8),
-                if (isSelectionMode && selectedProducts.isNotEmpty)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: _deleteSelected,
-                    child: const Text("Delete"),
-                  ),
-              ],
-            ),
-          ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: products.isEmpty
-                  ? const Center(child: Text("No products found."))
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
-                      itemCount: products.length,
-                      itemBuilder: (context, index) {
-                        final product = products[index];
-                        final qty = product['quantity'] as int;
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+            child: SingleChildScrollView( 
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: "Search...",
+                          prefixIcon: const Icon(Icons.search),
+                          filled: true,
+                          fillColor: Colors.grey.shade200,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 16,
                           ),
-                          elevation: 2,
-                          color: qty < 7 ? Colors.red.shade100 : Colors.white,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                if (isSelectionMode)
-                                  Checkbox(
-                                    value: selectedProducts.contains(index),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        if (value == true) {
-                                          selectedProducts.add(index);
-                                        } else {
-                                          selectedProducts.remove(index);
-                                        }
-                                      });
-                                    },
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onChanged: _filterProducts,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "All Categories",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          DropdownButton<String>(
+                            value: selectedCategory,
+                            icon: const Icon(Icons.arrow_drop_down),
+                            items: categories.map((String category) {
+                              return DropdownMenuItem<String>(
+                                value: category,
+                                child: Text(category),
+                              );
+                            }).toList(),
+                            onChanged: _filterByCategory,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          ElevatedButton(
+                            onPressed: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const AddPage()),
+                              );
+                              _loadProducts();
+                            },
+                            child: const Text("Add"),
+                          ),
+                          const Spacer(),
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                isSelectionMode = !isSelectionMode;
+                                selectedProducts.clear();
+                              });
+                            },
+                            child: Text(isSelectionMode ? "Cancel" : "Select"),
+                          ),
+                          const SizedBox(width: 8),
+                          if (isSelectionMode && selectedProducts.isNotEmpty)
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: _deleteSelected,
+                              child: const Text("Delete"),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: products.isEmpty
+                          ? const Center(child: Text("No products found."))
+                          : ListView.builder(
+                              physics:
+                                  const NeverScrollableScrollPhysics(), 
+                              shrinkWrap: true, 
+                              padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
+                              itemCount: products.length,
+                              itemBuilder: (context, index) {
+                                final product = products[index];
+                                final qty = product['quantity'] as int;
+                                return Card(
+                                  margin:
+                                      const EdgeInsets.symmetric(vertical: 4),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                // Product thumbnail (show saved image when available)
-                                Builder(builder: (_) {
-                                  final String? imagePath = product['imagePath'] as String?;
-                                  final bool hasImage = imagePath != null && imagePath.isNotEmpty && File(imagePath).existsSync();
-                                  if (hasImage) {
-                                    return ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.file(
-                                        File(imagePath),
-                                        width: 60,
-                                        height: 60,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
+                                  elevation: 2,
+                                  color: qty < 7
+                                      ? Colors.red.shade100
+                                      : Colors.white,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Row(
+                                      children: [
+                                        if (isSelectionMode)
+                                          Checkbox(
+                                            value:
+                                                selectedProducts.contains(index),
+                                            onChanged: (value) {
+                                              setState(() {
+                                                if (value == true) {
+                                                  selectedProducts.add(index);
+                                                } else {
+                                                  selectedProducts
+                                                      .remove(index);
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        Builder(builder: (_) {
+                                          final String? imagePath =
+                                              product['imagePath'] as String?;
+                                          final bool hasImage = imagePath !=
+                                                  null &&
+                                              imagePath.isNotEmpty &&
+                                              File(imagePath).existsSync();
+                                          if (hasImage) {
+                                            return GestureDetector(
+                                              onTap: () =>
+                                                  _viewImage(imagePath),
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                child: Image.file(
+                                                  File(imagePath),
+                                                  width: 60,
+                                                  height: 60,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                      stackTrace) {
+                                                    return Container(
+                                                      width: 60,
+                                                      height: 60,
+                                                      decoration: BoxDecoration(
+                                                        color: Colors
+                                                            .grey.shade300,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                        border: Border.all(
+                                                            color: Colors
+                                                                .grey.shade500),
+                                                      ),
+                                                      child: const Center(
+                                                        child: Icon(Icons.image,
+                                                            color:
+                                                                Colors.grey),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                            );
+                                          }
                                           return Container(
                                             width: 60,
                                             height: 60,
                                             decoration: BoxDecoration(
                                               color: Colors.grey.shade300,
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(color: Colors.grey.shade500),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                  color: Colors.grey.shade500),
                                             ),
                                             child: const Center(
-                                              child: Icon(Icons.image, color: Colors.grey),
+                                              child: Icon(Icons.image,
+                                                  color: Colors.grey),
                                             ),
                                           );
-                                        },
-                                      ),
-                                    );
-                                  }
-                                  return Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade300,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.grey.shade500),
-                                    ),
-                                    child: const Center(
-                                      child: Icon(Icons.image, color: Colors.grey),
-                                    ),
-                                  );
-                                }),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        product['productName'],
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
+                                        }),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                product['productName'],
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                "Stock: ${product['quantity']} | Price: ₱${product['unitPrice']}",
+                                                style: const TextStyle(
+                                                    fontSize: 14),
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        "Stock: ${product['quantity']} | Price: ₱${product['unitPrice']}",
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 12),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            _showSellModal(product);
+                                          },
+                                          child: const Text("Sell"),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    _showSellModal(product);
-                                  },
-                                  child: const Text("Sell"),
-                                ),
-                              ],
+                                );
+                              },
                             ),
-                          ),
-                        );
-                      },
                     ),
-            ),
-          ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade300)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildNavItem(
-                  icon: Icons.inventory,
-                  label: "Inventory",
-                  isActive: true,
-                  color: Colors.blue,
-                  onTap: () {},
+                  ],
                 ),
-                _buildNavItem(
-                  icon: Icons.bar_chart,
-                  label: "Sales",
-                  isActive: false,
-                  color: Colors.green,
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SalesPage()),
-                    );
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.local_shipping,
-                  label: "Delivery",
-                  isActive: false,
-                  color: Colors.orange,
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DeliveryPage()),
-                    );
-                  },
-                ),
-              ],
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+ }
 }
