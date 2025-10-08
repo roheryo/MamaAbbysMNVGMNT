@@ -11,17 +11,17 @@ Map<String, double> buildFeatureRow(
   final day = date.day;
   final quarter = ((date.month - 1) ~/ 3) + 1;
   final weekday = date.weekday - 1; // 0..6 Monday..Sunday
-  int _dayOfYear(DateTime d) => d.difference(DateTime(d.year, 1, 1)).inDays + 1;
+  int dayOfYear0(DateTime d) => d.difference(DateTime(d.year, 1, 1)).inDays + 1;
 
   // ISO week number (1..53). This computes a simple week-of-year where week starts Monday.
-  int _weekOfYear(DateTime d) {
+  int weekOfYear(DateTime d) {
     final jan1 = DateTime(d.year, 1, 1);
     final days = d.difference(jan1).inDays;
     return (days / 7).floor() + 1;
   }
 
-  final isoWeek = _weekOfYear(date);
-  final dayOfYear = _dayOfYear(date);
+  final isoWeek = weekOfYear(date);
+  final dayOfYear = dayOfYear0(date);
   final isWeekend = weekday >= 5 ? 1 : 0;
   final isMonthStart = day == 1 ? 1 : 0;
   final nextDay = date.add(const Duration(days: 1));

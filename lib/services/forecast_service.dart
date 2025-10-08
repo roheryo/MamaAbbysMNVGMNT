@@ -200,20 +200,20 @@ class ForecastService {
     print("[ForecastService] Forecast runtime: ${_useTflite ? 'TFLITE' : 'ONNX'}; features: ${featureOrder.length}");
 
     // Helper: extract first numeric value from nested lists or dynamic outputs
-    double _extractFirstNum(dynamic v) {
+    double extractFirstNum(dynamic v) {
       try {
         if (v == null) return 0.0;
         if (v is num) return v.toDouble();
         if (v is String) return double.tryParse(v) ?? 0.0;
-        if (v is List && v.isNotEmpty) return _extractFirstNum(v.first);
-        if (v is Iterable && v.isNotEmpty) return _extractFirstNum(v.first);
+        if (v is List && v.isNotEmpty) return extractFirstNum(v.first);
+        if (v is Iterable && v.isNotEmpty) return extractFirstNum(v.first);
         return double.tryParse(v.toString()) ?? 0.0;
       } catch (_) {
         return 0.0;
       }
     }
 
-    bool _loggedSessionNullOnce = false;
+    bool loggedSessionNullOnce = false;
 
     // The Python training/export pipeline exports a scikit-learn regressor
     // that expects a single-row feature vector of shape [1, feature_count].
@@ -294,7 +294,9 @@ class ForecastService {
         if (arr.isEmpty) return 0.0;
         final alpha = 2.0 / (span + 1.0);
         double e = arr.first;
-        for (int k = 1; k < arr.length; k++) e = alpha * arr[k] + (1 - alpha) * e;
+        for (int k = 1; k < arr.length; k++) {
+          e = alpha * arr[k] + (1 - alpha) * e;
+        }
         return e;
       }
       feat['sales_ema7'] = feat['sales_ema7'] ?? ema(rolling7, 7);
@@ -303,19 +305,19 @@ class ForecastService {
 
       // Ratios and volatility
   // Local copies to satisfy null-safety and avoid repeated map lookups
-  final double v_sales_lag1 = (feat['sales_lag1'] ?? lastKnown).toDouble();
-  final double v_sales_ma7 = (feat['sales_ma7'] ?? 0.0).toDouble();
-  final double v_sales_ma30 = (feat['sales_ma30'] ?? 0.0).toDouble();
-  final double v_sales_std7 = (feat['sales_std7'] ?? 0.0).toDouble();
-  final double v_sales_std30 = (feat['sales_std30'] ?? 0.0).toDouble();
+  final double vSalesLag1 = (feat['sales_lag1'] ?? lastKnown).toDouble();
+  final double vSalesMa7 = (feat['sales_ma7'] ?? 0.0).toDouble();
+  final double vSalesMa30 = (feat['sales_ma30'] ?? 0.0).toDouble();
+  final double vSalesStd7 = (feat['sales_std7'] ?? 0.0).toDouble();
+  final double vSalesStd30 = (feat['sales_std30'] ?? 0.0).toDouble();
 
-  feat['sales_to_ma7_ratio'] = feat['sales_to_ma7_ratio'] ?? (v_sales_ma7 != 0.0 ? (v_sales_lag1 / v_sales_ma7) : 0.0);
-  feat['sales_to_ma30_ratio'] = feat['sales_to_ma30_ratio'] ?? (v_sales_ma30 != 0.0 ? (v_sales_lag1 / v_sales_ma30) : 0.0);
-  feat['ma7_to_ma30_ratio'] = feat['ma7_to_ma30_ratio'] ?? (v_sales_ma30 != 0.0 ? (v_sales_ma7 / v_sales_ma30) : 0.0);
-  feat['sales_volatility_7'] = feat['sales_volatility_7'] ?? (v_sales_ma7 != 0.0 ? (v_sales_std7 / v_sales_ma7) : 0.0);
-  feat['sales_volatility_30'] = feat['sales_volatility_30'] ?? (v_sales_ma30 != 0.0 ? (v_sales_std30 / v_sales_ma30) : 0.0);
+  feat['sales_to_ma7_ratio'] = feat['sales_to_ma7_ratio'] ?? (vSalesMa7 != 0.0 ? (vSalesLag1 / vSalesMa7) : 0.0);
+  feat['sales_to_ma30_ratio'] = feat['sales_to_ma30_ratio'] ?? (vSalesMa30 != 0.0 ? (vSalesLag1 / vSalesMa30) : 0.0);
+  feat['ma7_to_ma30_ratio'] = feat['ma7_to_ma30_ratio'] ?? (vSalesMa30 != 0.0 ? (vSalesMa7 / vSalesMa30) : 0.0);
+  feat['sales_volatility_7'] = feat['sales_volatility_7'] ?? (vSalesMa7 != 0.0 ? (vSalesStd7 / vSalesMa7) : 0.0);
+  feat['sales_volatility_30'] = feat['sales_volatility_30'] ?? (vSalesMa30 != 0.0 ? (vSalesStd30 / vSalesMa30) : 0.0);
 
-  feat['sales_detrended'] = feat['sales_detrended'] ?? (v_sales_lag1 - v_sales_ma30);
+  feat['sales_detrended'] = feat['sales_detrended'] ?? (vSalesLag1 - vSalesMa30);
 
       final List<double> nextFeatVector = featureOrder.map((name) => feat[name] ?? 0.0).toList().cast<double>();
 
@@ -344,10 +346,10 @@ class ForecastService {
         }
       } else {
         if (_session == null) {
-          if (!_loggedSessionNullOnce) {
+          if (!loggedSessionNullOnce) {
             // ignore: avoid_print
             print('[ForecastService] ONNX session is null, skipping prediction');
-            _loggedSessionNullOnce = true;
+            loggedSessionNullOnce = true;
           }
           pred = 0.0;
         } else {
@@ -365,15 +367,16 @@ class ForecastService {
             rawOut = await first.asList();
           }
 
-          pred = _extractFirstNum(rawOut);
+          pred = extractFirstNum(rawOut);
         }
       }
 
       // Sanity-check and stabilize prediction
       if (pred.isNaN || pred.isInfinite || pred < 0.0) pred = 0.0;
       double recentMean = 0.0;
-      if (rolling30.isNotEmpty) recentMean = rolling30.reduce((a, b) => a + b) / rolling30.length;
-      else if (sales.isNotEmpty) recentMean = sales.reduce((a, b) => a + b) / sales.length;
+      if (rolling30.isNotEmpty) {
+        recentMean = rolling30.reduce((a, b) => a + b) / rolling30.length;
+      } else if (sales.isNotEmpty) recentMean = sales.reduce((a, b) => a + b) / sales.length;
       else recentMean = lastKnown > 0.0 ? lastKnown : 1.0;
       final double histMax = sales.isNotEmpty ? sales.reduce(max) : lastKnown;
       double upperLimit = max(histMax * 3.0, recentMean * 5.0);
