@@ -22,11 +22,16 @@ from sklearn.gaussian_process.kernels import RBF, WhiteKernel
 from sklearn.pipeline import Pipeline
 
 try:
-    import skl2onnx
-    from skl2onnx import convert_sklearn
-    from skl2onnx.common.data_types import FloatTensorType
-    ONNX_EXPORT_AVAILABLE = True
+    import importlib
+    skl2onnx = importlib.import_module('skl2onnx')
+    convert_sklearn = getattr(skl2onnx, 'convert_sklearn', None)
+    common_data_types = importlib.import_module('skl2onnx.common.data_types')
+    FloatTensorType = getattr(common_data_types, 'FloatTensorType', None)
+    ONNX_EXPORT_AVAILABLE = bool(convert_sklearn and FloatTensorType)
 except Exception:
+    skl2onnx = None
+    convert_sklearn = None
+    FloatTensorType = None
     ONNX_EXPORT_AVAILABLE = False
 
 # Advanced ML Libraries
@@ -761,6 +766,35 @@ class SalesMLAnalyzer:
             feature_cols = [col for col in self.X_train.columns]
             with open(features_path, 'w') as f:
                 json.dump(feature_cols, f)
+
+            # Save scaler parameters if a scaler was used (so mobile can apply same preprocessing)
+            try:
+                scaler_params_path = os.path.join(os.path.dirname(onnx_path), 'scaler_params.json')
+                scaler_info = None
+                if scaler is not None:
+                    # Try StandardScaler-like attributes
+                    if hasattr(scaler, 'mean_') and hasattr(scaler, 'scale_'):
+                        scaler_info = {
+                            'type': 'standard',
+                            'mean': scaler.mean_.tolist(),
+                            'scale': scaler.scale_.tolist()
+                        }
+                    # Try MinMax or alternative scalers
+                    elif hasattr(scaler, 'data_min_') and hasattr(scaler, 'data_max_'):
+                        data_min = scaler.data_min_.tolist()
+                        data_max = scaler.data_max_.tolist()
+                        scaler_info = {
+                            'type': 'minmax',
+                            'min': data_min,
+                            'max': data_max
+                        }
+                # Write scaler info if available
+                if scaler_info is not None:
+                    with open(scaler_params_path, 'w') as sf:
+                        json.dump(scaler_info, sf)
+                    print(f'Exported scaler parameters to {scaler_params_path}')
+            except Exception as e:
+                print(f'Failed to export scaler params: {e}')
 
             print(f'Exported ONNX model to {onnx_path}')
             print(f'Exported feature list to {features_path}')

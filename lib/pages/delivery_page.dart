@@ -130,6 +130,7 @@ void _filterByStatus(String? status) {
   final db = DatabaseHelper();
   await db.checkOverdueDeliveries(overdueAfter: Duration.zero);
   deliveries = await db.fetchDeliveries();
+  if (!mounted) return;
   setState(() {});
 
   // toast for overdue delivery notifications
@@ -145,6 +146,7 @@ void _filterByStatus(String? status) {
     if (match != null) {
       final customerName = match.group(1);
       if (customerName != null && mounted) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Your Delivery For $customerName is overdue!"),
@@ -165,6 +167,7 @@ void _filterByStatus(String? status) {
         if (id is int) {
           await db.markNotificationsReadByIds([id]);
         }
+        if (!mounted) return;
         await _refreshUnread();
       }
     }

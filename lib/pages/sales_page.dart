@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 
 import '../services/forecast_service.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class SalesPage extends StatefulWidget {
   const SalesPage({super.key});
@@ -27,10 +28,10 @@ class _SalesPageState extends State<SalesPage> {
   double totalSales = 0.0;
   bool isLoading = false;
   List<Map<String, dynamic>> transactions = [];
-  bool isGenerating = false;
-  bool isRecomputing = false;
+  
   bool isForecastLoading = false;
   List<DailyForecast> forecasts = [];
+  List<Map<String, dynamic>> recentHistory = [];
 
   Future<void> _pickTodayDate(BuildContext context) async {
     final DateTime now = DateTime.now();
@@ -89,15 +90,19 @@ class _SalesPageState extends State<SalesPage> {
     setState(() => isForecastLoading = true);
     try {
       final data = await ForecastService().forecastNext30Days();
+      // Also fetch recent historical totals for charting
+      final hist = await DatabaseHelper().fetchStoreSales();
       if (!mounted) return;
       setState(() {
         forecasts = data;
+        recentHistory = hist;
         isForecastLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         forecasts = [];
+        recentHistory = [];
         isForecastLoading = false;
       });
     }
@@ -182,76 +187,7 @@ class _SalesPageState extends State<SalesPage> {
     }
   }
 
-  Future<void> _generateDemoSales() async {
-    if (isGenerating) return;
-    setState(() {
-      isGenerating = true;
-    });
-    try {
-      final helper = DatabaseHelper();
-      final before = await helper.getSalesTransactionsCount();
-      final created = await helper.ensureHistoricalData(minTransactions: 500);
-      final after = await helper.getSalesTransactionsCount();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Generated ${created > 0 ? created : (after - before)} transactions. Total: $after'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-
-      await _fetchSalesData();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to generate demo sales: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          isGenerating = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _recomputeDailyTotals() async {
-    if (isRecomputing) return;
-    setState(() {
-      isRecomputing = true;
-    });
-    try {
-      await DatabaseHelper().recomputeAllStoreSales();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Recomputed daily totals from sales transactions'),
-          backgroundColor: Colors.blue,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      await _fetchSalesData();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Recompute failed: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          isRecomputing = false;
-        });
-      }
-    }
-  }
+  
 
   @override
   void initState() {
@@ -493,33 +429,11 @@ class _SalesPageState extends State<SalesPage> {
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: isRecomputing ? null : _recomputeDailyTotals,
-                  icon: isRecomputing
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.sync),
-                  label: Text(isRecomputing ? 'Recomputing...' : 'Recompute Daily Totals'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: isGenerating ? null : _generateDemoSales,
-                  icon: isGenerating
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.history),
-                  label: Text(isGenerating ? 'Generating...' : 'Generate 500+ Demo Sales'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [],
             ),
           ),
 
@@ -667,7 +581,7 @@ class _SalesPageState extends State<SalesPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: isForecastLoading
                     ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                    : forecasts.isEmpty
+                        : forecasts.isEmpty
                         ? const Center(
                             child: Text(
                               'No forecast available. Ensure sales data exists.',
@@ -691,6 +605,27 @@ class _SalesPageState extends State<SalesPage> {
                                 ),
                               ),
                               const SizedBox(height: 12),
+                              // Chart area: show recent history (last 60 days) + 30-day forecast
+                              SizedBox(
+                                height: 260,
+                                child: Card(
+                                  elevation: 1,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: LineChart(
+                                      LineChartData(
+                                        gridData: FlGridData(show: true),
+                                        titlesData: FlTitlesData(
+                                          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
+                                          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                        ),
+                                        lineBarsData: _buildChartSeries(recentHistory, forecasts),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
                               Expanded(
                                 child: ListView.separated(
                                   itemCount: forecasts.length,
@@ -730,5 +665,48 @@ class _SalesPageState extends State<SalesPage> {
         ],
       ),
     );
+  }
+
+  List<LineChartBarData> _buildChartSeries(List<Map<String, dynamic>> history, List<DailyForecast> forecast) {
+    // Convert history rows (descending by default from DB) to ascending date order
+    final hist = [...history];
+    hist.sort((a, b) => (a['sale_date'] as String).compareTo(a['sale_date'] as String));
+
+    // Only keep last N days for chart clarity
+    final int keep = 60;
+    final histTrim = hist.length > keep ? hist.sublist(hist.length - keep) : hist;
+
+    final List<FlSpot> histSpots = [];
+    double x = 0.0;
+    for (final r in histTrim) {
+      final s = (r['sales'] as num?)?.toDouble() ?? 0.0;
+      histSpots.add(FlSpot(x, s));
+      x += 1.0;
+    }
+
+    // forecast spots continue the x axis
+    final List<FlSpot> foreSpots = [];
+    for (int i = 0; i < forecast.length; i++) {
+      foreSpots.add(FlSpot(x + i.toDouble(), forecast[i].predictedSales));
+    }
+
+    final historyLine = LineChartBarData(
+      spots: histSpots,
+      isCurved: true,
+      color: Colors.blue,
+      barWidth: 2,
+      dotData: FlDotData(show: false),
+    );
+
+    final forecastLine = LineChartBarData(
+      spots: foreSpots,
+      isCurved: true,
+      color: Colors.red,
+      barWidth: 2,
+      dashArray: [6, 3],
+      dotData: FlDotData(show: false),
+    );
+
+    return [historyLine, forecastLine];
   }
 }
