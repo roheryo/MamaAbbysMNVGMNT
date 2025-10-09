@@ -143,7 +143,7 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) {
         return StatefulBuilder(builder: (context, setState) {
           return AlertDialog(
-            title: const Text('Add Product Name'),
+            title: const Text('Add Product'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

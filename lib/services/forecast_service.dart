@@ -381,7 +381,41 @@ class ForecastService {
         } catch (e) {
           // ignore: avoid_print
           print('[ForecastService] TFLite run failed (single-row mode): $e');
-          pred = 0.0;
+          // If failure stems from variable/READ_VARIABLE ops (common when model contains uninitialized variables),
+          // fall back to ONNX runtime at runtime to continue producing forecasts.
+          final msg = e.toString();
+          if (msg.contains('READ_VARIABLE') || msg.contains('variable') || msg.contains('failed precondition')) {
+            // Try to switch to ONNX runtime if possible
+            try {
+              if (_session == null) {
+                final ort = OnnxRuntime();
+                _session = await ort.createSessionFromAsset('assets/models/sales_forecast.onnx');
+                // ignore: avoid_print
+                print('[ForecastService] Loaded ONNX model from assets/models/sales_forecast.onnx (runtime fallback)');
+              }
+              _useTflite = false;
+              // Perform ONNX prediction for this input now
+              final int featureCount = inputVector.length;
+              final input = await OrtValue.fromList(Float32List.fromList(inputVector), [1, featureCount]);
+              final outputs = await _session!.run({'input': input});
+              dynamic rawOut;
+              if (outputs.containsKey('output')) {
+                rawOut = await outputs['output']!.asList();
+              } else if (outputs.containsKey('variable')) {
+                rawOut = await outputs['variable']!.asList();
+              } else {
+                final first = outputs.values.first;
+                rawOut = await first.asList();
+              }
+              pred = extractFirstNum(rawOut);
+            } catch (e2) {
+              // ignore: avoid_print
+              print('[ForecastService] Fallback ONNX predict also failed: $e2');
+              pred = 0.0;
+            }
+          } else {
+            pred = 0.0;
+          }
         }
       } else {
         if (_session == null) {
