@@ -417,26 +417,33 @@ void _filterByStatus(String? status) {
                   ),
                   const SizedBox(height: 8),
                   
-                  DropdownButtonFormField<Map<String, dynamic>>(
-                    initialValue: selectedProduct,
-                    decoration: const InputDecoration(
-                      labelText: "Product",
-                      isDense: true,
+                  // Wrap dropdown in a ConstrainedBox and set isExpanded to avoid overflow
+                  ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: 200, maxWidth: MediaQuery.of(context).size.width * 0.85),
+                    child: DropdownButtonFormField<Map<String, dynamic>>(
+                      isExpanded: true,
+                      initialValue: selectedProduct,
+                      decoration: const InputDecoration(
+                        labelText: "Product",
+                        isDense: true,
+                      ),
+                      items: availableProducts
+                          .map((p) => DropdownMenuItem(
+                                value: p,
+                                child: Flexible(
+                                  child: Text(
+                                    p['productName'] ?? '',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        selectedProduct = value;
+                        quantityController.text = '';
+                        setState(() {});
+                      },
                     ),
-                    items: availableProducts
-                        .map((p) => DropdownMenuItem(
-                              value: p,
-                              child: Text(
-                                p['productName'],
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      selectedProduct = value;
-                      quantityController.text = '';
-                      setState(() {});
-                    },
                   ),
                   const SizedBox(height: 8),
                   // Quantity

@@ -770,29 +770,55 @@ class SalesMLAnalyzer:
             # Save scaler parameters if a scaler was used (so mobile can apply same preprocessing)
             try:
                 scaler_params_path = os.path.join(os.path.dirname(onnx_path), 'scaler_params.json')
-                scaler_info = None
+
+                # Always produce a predictable schema so downstream apps can parse safely
+                # Schema: { available: bool, type: 'standard'|'minmax'|'robust'|'none', params: {...} }
+                scaler_info = {
+                    'available': False,
+                    'type': 'none',
+                    'params': None
+                }
+
                 if scaler is not None:
-                    # Try StandardScaler-like attributes
+                    scaler_info['available'] = True
+
+                    # StandardScaler-like
                     if hasattr(scaler, 'mean_') and hasattr(scaler, 'scale_'):
-                        scaler_info = {
-                            'type': 'standard',
-                            'mean': scaler.mean_.tolist(),
-                            'scale': scaler.scale_.tolist()
+                        scaler_info['type'] = 'standard'
+                        scaler_info['params'] = {
+                            'mean': np.array(scaler.mean_).tolist(),
+                            'scale': np.array(scaler.scale_).tolist()
                         }
-                    # Try MinMax or alternative scalers
+                    # MinMaxScaler-like
                     elif hasattr(scaler, 'data_min_') and hasattr(scaler, 'data_max_'):
-                        data_min = scaler.data_min_.tolist()
-                        data_max = scaler.data_max_.tolist()
-                        scaler_info = {
-                            'type': 'minmax',
-                            'min': data_min,
-                            'max': data_max
+                        scaler_info['type'] = 'minmax'
+                        scaler_info['params'] = {
+                            'min': np.array(scaler.data_min_).tolist(),
+                            'max': np.array(scaler.data_max_).tolist()
                         }
-                # Write scaler info if available
-                if scaler_info is not None:
+                    # RobustScaler-like
+                    elif hasattr(scaler, 'center_') and hasattr(scaler, 'scale_'):
+                        # Some RobustScaler implementations expose center_ and scale_
+                        scaler_info['type'] = 'robust'
+                        scaler_info['params'] = {
+                            'center': np.array(getattr(scaler, 'center_', [])).tolist(),
+                            'scale': np.array(getattr(scaler, 'scale_', [])).tolist()
+                        }
+                    else:
+                        # Unknown scaler type - provide a best-effort repr
+                        scaler_info['type'] = 'unknown'
+                        try:
+                            scaler_info['params'] = {k: getattr(scaler, k).tolist() for k in ['mean_', 'scale_', 'data_min_', 'data_max_'] if hasattr(scaler, k)}
+                        except Exception:
+                            scaler_info['params'] = None
+
+                # Write scaler info (always write predictable JSON)
+                try:
                     with open(scaler_params_path, 'w') as sf:
                         json.dump(scaler_info, sf)
                     print(f'Exported scaler parameters to {scaler_params_path}')
+                except Exception as e:
+                    print(f'Failed writing scaler_params.json: {e}')
             except Exception as e:
                 print(f'Failed to export scaler params: {e}')
 

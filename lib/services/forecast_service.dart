@@ -119,21 +119,61 @@ class ForecastService {
       // Optional; proceed without explicit names
     }
 
-    // Load scaler params if exported
+    // Load scaler params if exported. New schema expected: { available: bool, type: string, params: {...} }
     try {
       final scalerJson = await rootBundle.loadString('assets/models/scaler_params.json');
       if (scalerJson.isNotEmpty) {
         final parsed = jsonDecode(scalerJson) as Map<String, dynamic>;
-        if (parsed['type'] == 'standard') {
-          final meanList = (parsed['mean'] as List<dynamic>).map((e) => (e as num).toDouble()).toList();
-          final scaleList = (parsed['scale'] as List<dynamic>).map((e) => (e as num).toDouble()).toList();
-          _scalerMean = meanList;
-          _scalerScale = scaleList;
+
+        // Log the parsed content for debugging
+        // ignore: avoid_print
+        print('[ForecastService] scaler_params.json parsed: available=${parsed['available']}, type=${parsed['type']}');
+
+        final pType = (parsed['type'] ?? 'none').toString();
+
+        if ((parsed['available'] ?? false) == true) {
+          final params = parsed['params'] as Map<String, dynamic>?;
+          if (pType == 'standard' && params != null) {
+            // standard: expects { mean: [...], scale: [...] }
+            final meanList = (params['mean'] as List<dynamic>).map((e) => (e as num).toDouble()).toList();
+            final scaleList = (params['scale'] as List<dynamic>).map((e) => (e as num).toDouble()).toList();
+            _scalerMean = meanList;
+            _scalerScale = scaleList;
+            // ignore: avoid_print
+            print('[ForecastService] Loaded Standard scaler params (len=${_scalerMean!.length})');
+          } else if (pType == 'minmax' && params != null) {
+            // minmax: { min: [...], max: [...] } -> convert to scale and mean for (x - mean)/scale
+            final minList = (params['min'] as List<dynamic>).map((e) => (e as num).toDouble()).toList();
+            final maxList = (params['max'] as List<dynamic>).map((e) => (e as num).toDouble()).toList();
+            // derive mean and scale
+            final derivedMean = List<double>.generate(minList.length, (i) => (minList[i] + maxList[i]) / 2.0);
+            final derivedScale = List<double>.generate(minList.length, (i) => (maxList[i] - minList[i]) / 2.0);
+            _scalerMean = derivedMean;
+            _scalerScale = derivedScale.map((s) => s == 0.0 ? 1.0 : s).toList();
+            // ignore: avoid_print
+            print('[ForecastService] Loaded MinMax scaler params (derived mean/scale)');
+          } else if (pType == 'robust' && params != null) {
+            // robust: { center: [...], scale: [...] }
+            final centerList = (params['center'] as List<dynamic>).map((e) => (e as num).toDouble()).toList();
+            final scaleList = (params['scale'] as List<dynamic>).map((e) => (e as num).toDouble()).toList();
+            _scalerMean = centerList;
+            _scalerScale = scaleList.map((s) => s == 0.0 ? 1.0 : s).toList();
+            // ignore: avoid_print
+            print('[ForecastService] Loaded Robust scaler params (len=${_scalerMean!.length})');
+          } else {
+            // unknown or none -> log details
+            // ignore: avoid_print
+            print('[ForecastService] scaler_params.json available but type="$pType" not recognized or params missing.');
+          }
+        } else {
+          // explicit not available
+          // ignore: avoid_print
+          print('[ForecastService] scaler_params.json indicates no scaler available (available=false)');
         }
       }
-    } catch (_) {
+    } catch (e) {
       // ignore: avoid_print
-      print('[ForecastService] No scaler params found or failed to parse.');
+      print('[ForecastService] Failed to load/parse scaler_params.json: $e');
     }
   }
 
