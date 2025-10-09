@@ -615,7 +615,34 @@ void _filterByStatus(String? status) {
             onPressed: () => Navigator.pop(context),
             child: const Text("Close"),
           ),
-          if (delivery['status'] != 'Delivered' && delivery['status'] != 'Cancelled')
+          if (delivery['status'] != 'Delivered' && delivery['status'] != 'Cancelled') ...[
+            ElevatedButton(
+              onPressed: () async {
+                // Edit delivery date
+                final DateTime? picked = await showDatePicker(
+                  context: context,
+                  initialDate: _tryParseDate(delivery['createdAt'])?.toLocal() ?? DateTime.now(),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null) {
+                  // Save updated createdAt as ISO string
+                  final iso = picked.toIso8601String();
+                  await DatabaseHelper().updateDelivery(delivery['id'], {'createdAt': iso});
+                  await _refreshDeliveriesAndCheckOverdue();
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Delivery date updated')),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text("Edit Date"),
+            ),
+
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context); // Close dialog first
@@ -623,6 +650,7 @@ void _filterByStatus(String? status) {
               },
               child: const Text("Cancel Delivery"),
             ),
+          ],
         ],
       ),
     );
@@ -676,7 +704,7 @@ void _filterByStatus(String? status) {
         children: [
           // ===== HEADER =====
           Container(
-            padding: EdgeInsets.all(screenWidth * 0.03),
+            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: 12),
             color: Colors.white,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -686,9 +714,9 @@ void _filterByStatus(String? status) {
                     children: [
                       Image.asset(
                         "assets/images/mamaabbys.jpg",
-                        height: screenWidth * 0.15,
+                        height: 60,
                       ),
-                      SizedBox(width: screenWidth * 0.03),
+                      const SizedBox(width: 12),
                       Flexible(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -697,7 +725,7 @@ void _filterByStatus(String? status) {
                               "DELIVERY",
                               style: TextStyle(
                                 color: Colors.blue,
-                                fontSize: screenWidth * 0.05,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -706,7 +734,7 @@ void _filterByStatus(String? status) {
                               "Manage Deliveries",
                               style: TextStyle(
                                 color: Colors.black,
-                                fontSize: screenWidth * 0.035,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
                               overflow: TextOverflow.ellipsis,

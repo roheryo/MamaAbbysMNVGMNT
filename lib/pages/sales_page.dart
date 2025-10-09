@@ -49,40 +49,117 @@ class _SalesPageState extends State<SalesPage> {
     }
   }
 
-  Future<void> _pickWeeklyDate(BuildContext context) async {
-    final DateTime now = DateTime.now();
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedWeek ?? now,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) {
-      DateTime startOfWeek = picked.subtract(
-        Duration(days: picked.weekday - 1),
-      );
 
+  Future<void> _showWeeklyPickerModal(BuildContext context) async {
+    // Local temp selected date for the dialog
+    DateTime tempSelected = selectedWeek ?? DateTime.now();
+
+    DateTime _startOfWeek(DateTime d) => d.subtract(Duration(days: d.weekday - 1));
+    DateTime _endOfWeek(DateTime d) => _startOfWeek(d).add(const Duration(days: 6));
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setState) {
+          final start = _startOfWeek(tempSelected);
+          final end = _endOfWeek(tempSelected);
+
+          return AlertDialog(
+            title: const Text('Select Week'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Week: ${DateFormat('yyyy-MM-dd').format(start)} → ${DateFormat('yyyy-MM-dd').format(end)}'),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () async {
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: tempSelected,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        tempSelected = picked;
+                      });
+                    }
+                  },
+                  child: const Text('Pick Date (choose any day in desired week)'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Confirm'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+
+    if (confirmed == true) {
+      final startOfWeek = _startOfWeek(tempSelected);
       setState(() {
         selectedWeek = startOfWeek;
+        selectedFilter = 'Weekly';
       });
-
-      _fetchSalesData();
+      await _fetchSalesData();
     }
   }
 
-  Future<void> _pickMonthlyDate(BuildContext context) async {
-    final DateTime now = DateTime.now();
-    final DateTime? picked = await showDatePicker(
+  Future<void> _showMonthlyPickerModal(BuildContext context) async {
+    final now = DateTime.now();
+
+    // Generate a list of recent months (e.g., last 36 months)
+    final months = List<DateTime>.generate(36, (i) {
+      final month = DateTime(now.year, now.month - i, 1);
+      return month;
+    });
+
+    final DateTime? picked = await showDialog<DateTime>(
       context: context,
-      initialDate: selectedMonth ?? now,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Select Month'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: months.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final m = months[index];
+                final label = DateFormat('MMMM yyyy').format(m);
+                return ListTile(
+                  title: Text(label),
+                  onTap: () => Navigator.of(context).pop(m),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
     );
+
     if (picked != null) {
       setState(() {
         selectedMonth = DateTime(picked.year, picked.month);
+        selectedFilter = 'Monthly';
       });
-      _fetchSalesData();
+      await _fetchSalesData();
     }
   }
 
@@ -381,9 +458,9 @@ class _SalesPageState extends State<SalesPage> {
                         if (filter == "Today") {
                           await _pickTodayDate(context);
                         } else if (filter == "Weekly") {
-                          await _pickWeeklyDate(context);
+                          await _showWeeklyPickerModal(context);
                         } else if (filter == "Monthly") {
-                          await _pickMonthlyDate(context);
+                          await _showMonthlyPickerModal(context);
                         } else if (filter == "Forecast") {
                           await _fetchForecast();
                         }

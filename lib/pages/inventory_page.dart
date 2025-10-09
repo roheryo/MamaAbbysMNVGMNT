@@ -291,7 +291,13 @@ class _InventoryPageState extends State<InventoryPage> {
                         const SizedBox(height: 4),
                         Text('Remaining Stock: ${selectedQuantity > 0 ? currentStock - selectedQuantity : currentStock}',
                              style: TextStyle(
-                               color: selectedQuantity > 0 && (currentStock - selectedQuantity) < 7 ? Colors.red : Colors.green,
+                               color: selectedQuantity > 0
+                                   ? ((currentStock - selectedQuantity) == 0
+                                       ? Colors.red
+                                       : ((currentStock - selectedQuantity) < 7
+                                           ? Colors.yellow[800]
+                                           : Colors.green))
+                                   : Colors.green,
                                fontWeight: FontWeight.bold,
                              )),
                         if (selectedQuantity == 0)
@@ -852,9 +858,11 @@ Widget build(BuildContext context) {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   elevation: 2,
-                                  color: qty < 7
-                                      ? Colors.red.shade100
-                                      : Colors.white,
+                  color: qty == 0
+                    ? Colors.red.shade100
+                    : (qty < 7
+                      ? Colors.yellow.shade100
+                      : Colors.white),
                                   child: Padding(
                                     padding: const EdgeInsets.all(12),
                                     child: Row(

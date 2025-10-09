@@ -571,6 +571,13 @@ class DatabaseHelper {
     int deliveryId = id is int ? id : int.parse(id.toString());
     return await db.update('deliveries', {'status': status}, where: 'id = ?', whereArgs: [deliveryId]);
   }
+  
+  /// Update delivery record fields for a given delivery id.
+  /// Example: updateDelivery(5, {'createdAt': DateTime.now().toIso8601String()})
+  Future<int> updateDelivery(int id, Map<String, dynamic> fields) async {
+    final db = await database;
+    return await db.update('deliveries', fields, where: 'id = ?', whereArgs: [id]);
+  }
 
   Future<int> deleteDelivery(int id) async {
     final db = await database;
