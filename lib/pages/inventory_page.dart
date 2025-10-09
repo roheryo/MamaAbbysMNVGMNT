@@ -492,7 +492,83 @@ class _InventoryPageState extends State<InventoryPage> {
     );
   }
 
-void _viewImage(String imagePath) {
+String _assetForProduct(String productName) {
+  // Normalize and map common product names to asset filenames.
+  // The mapping aims to match product names used in the DB to the
+  // assets/images/ filenames included in the repository.
+  final name = productName.toLowerCase();
+
+  // A small mapping from keywords to file names in assets/images
+  final Map<String, String> map = {
+    'beef chorizo': 'Beef Chorizo.png',
+    'beefies classic 1 kilo': 'Beefies Classic 1 kilo.jpg',
+    'beefies classic 250g': 'Beefies Classic 250g.jpg',
+    'beefies with cheese 1 kilo': 'Beefies with Cheese 1 kilo.jpg',
+    'beefies with cheese 250g': 'Beefies with Cheese 250g.jpg',
+    'big shot ball 500g': 'Big shot ball 500g.jpg',
+    'big shot classic 1 kilo': 'Big shot classic 1 kilo.jpg',
+    'big shot with cheese 1 kilo': 'Big shot with Cheese 1 kilo.jpg',
+    'burger patty': 'Burger Patty.png',
+    'champion chicken hotdog': 'Champion Chicken Hotdog.png',
+    'chicken breast nuggets': 'Chicken Breast Nuggets.jpg',
+    'chicken chorizo': 'Chicken Chorizo.png',
+    'chicken ham': 'Chicken Ham.png',
+    'chicken loaf': 'Chicken Loaf.jpeg',
+    'chicken lumpia': 'Chicken Lumpia.png',
+    'chicken roll': 'Chicken Roll.jpg',
+    'chicken tocino': 'Chicken Tocino.jpg',
+    'crazy cut nuggets': 'Crazy Cut Nuggets.png',
+    'ganada sweet ham': 'Ganada Sweet Ham.jpg',
+    'hamleg square cut': 'Hamleg Square Cut.jpg',
+    'mamaabbys': 'mamaabbys.jpg',
+    'mama abby': 'mama_abbys.jpg',
+    'orlian': 'Orlian.png',
+    'pork belly': 'Pork Belly.jpg',
+    'pork chop': 'Pork Chop.jpg',
+    'pork chorizo': 'Pork Chorizo.jpg',
+    'pork longganisa': 'Pork Longganisa.png',
+    'pork lumpia': 'Pork Lumpia.png',
+    'pork pata': 'Pork Pata.jpg',
+    'pork tocino': 'Pork Tocino.png',
+    'siomai dimsum': 'Siomai Dimsum.png',
+    'squidball holiday': 'Squidball Holiday.png',
+    'squidball kimsea': 'Squidball Kimsea.jpg',
+    'star nuggets': 'Star Nuggets.png',
+    'tj balls 500g': 'TJ Balls 500g.png',
+    'tj cheesedog (small)': 'TJ Cheesedog (Small).jpg',
+    'tj cheesedog 1 kilo': 'TJ Cheesedog 1 kilo.jpg',
+    'tj chicken jumbo': 'TJ Chicken Jumbo.jpg',
+    'tj classic (small)': 'TJ Classic (Small).png',
+    'tj classic 1 kilo': 'TJ Classic 1 kilo.jpg',
+    'tj classic 250g': 'TJ Classic 250g.png',
+    'tj cocktail': 'TJ Cocktail.jpg',
+    'tj hotdog with cheese 250g': 'TJ Hotdog with Cheese 250g.jpg',
+    'tocino roll': 'Tocino Roll.jpeg',
+    'virginia chicken hotdog 250g (blue)': 'Virginia Chicken Hotdog 250g (Blue).png',
+    'virginia chicken hotdog with cheese (jumbo)': 'Virginia Chicken Hotdog with Cheese (Jumbo).png',
+    'virginia classic 1kilo': 'Virginia Classic 1kilo.png',
+    'virginia classic 500g': 'Virginia Classic 500g.png',
+    'virginia with cheese 1 kilo': 'Virginia with cheese 1 kilo.jpg',
+    'viriginia-classic-250g': 'Viriginia-Classic-250g.png',
+  };
+
+  // Try to find exact key first
+  for (final key in map.keys) {
+    if (name.contains(key)) return 'assets/images/${map[key]}';
+  }
+
+  // As a fallback try to match by simpler tokens
+  if (name.contains('virginia')) return 'assets/images/mamaabbys.jpg';
+  if (name.contains('beefies')) return 'assets/images/Beefies Classic 1 kilo.jpg';
+  if (name.contains('tj')) return 'assets/images/TJ Classic 1 kilo.jpg';
+  if (name.contains('pork')) return 'assets/images/Pork Chop.jpg';
+  if (name.contains('chicken')) return 'assets/images/Chicken Roll.jpg';
+
+  // Final default
+  return 'assets/images/mamaabbys.jpg';
+}
+
+void _viewImage(String imagePath, {bool isAsset = false}) {
   showDialog(
     context: context,
     builder: (context) {
@@ -503,10 +579,15 @@ void _viewImage(String imagePath) {
           children: [
             Center(
               child: InteractiveViewer(
-                child: Image.file(
-                  File(imagePath),
-                  fit: BoxFit.contain,
-                ),
+                child: isAsset
+                    ? Image.asset(
+                        imagePath,
+                        fit: BoxFit.contain,
+                      )
+                    : Image.file(
+                        File(imagePath),
+                        fit: BoxFit.contain,
+                      ),
               ),
             ),
             Positioned(
@@ -794,14 +875,14 @@ Widget build(BuildContext context) {
                                         Builder(builder: (_) {
                                           final String? imagePath =
                                               product['imagePath'] as String?;
-                                          final bool hasImage = imagePath !=
+                                          final bool hasFileImage = imagePath !=
                                                   null &&
                                               imagePath.isNotEmpty &&
                                               File(imagePath).existsSync();
-                                          if (hasImage) {
+
+                                          if (hasFileImage) {
                                             return GestureDetector(
-                                              onTap: () =>
-                                                  _viewImage(imagePath),
+                                              onTap: () => _viewImage(imagePath),
                                               child: ClipRRect(
                                                 borderRadius:
                                                     BorderRadius.circular(8),
@@ -836,19 +917,44 @@ Widget build(BuildContext context) {
                                               ),
                                             );
                                           }
-                                          return Container(
-                                            width: 60,
-                                            height: 60,
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey.shade300,
+
+                                          // No file image - try to use asset based on product name
+                                          final assetPath = _assetForProduct(
+                                              product['productName'].toString());
+
+                                          return GestureDetector(
+                                            onTap: () => _viewImage(assetPath,
+                                                isAsset: true),
+                                            child: ClipRRect(
                                               borderRadius:
                                                   BorderRadius.circular(8),
-                                              border: Border.all(
-                                                  color: Colors.grey.shade500),
-                                            ),
-                                            child: const Center(
-                                              child: Icon(Icons.image,
-                                                  color: Colors.grey),
+                                              child: Image.asset(
+                                                assetPath,
+                                                width: 60,
+                                                height: 60,
+                                                fit: BoxFit.cover,
+                                                errorBuilder:
+                                                    (context, error, stackTrace) {
+                                                  return Container(
+                                                    width: 60,
+                                                    height: 60,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors
+                                                          .grey.shade300,
+                                                      borderRadius:
+                                                          BorderRadius
+                                                              .circular(8),
+                                                      border: Border.all(
+                                                          color: Colors
+                                                              .grey.shade500),
+                                                    ),
+                                                    child: const Center(
+                                                      child: Icon(Icons.image,
+                                                          color: Colors.grey),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
                                             ),
                                           );
                                         }),

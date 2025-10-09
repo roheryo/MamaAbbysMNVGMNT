@@ -13,8 +13,75 @@ class AddPage extends StatefulWidget {
 class _AddPageState extends State<AddPage> {
   String selectedCategory = 'Pork';
   List<String> categories = [];
+  String? selectedProductName;
 
-  final TextEditingController productNameController = TextEditingController();
+  // Product lists per category
+  final Map<String, List<String>> productsByCategory = {
+    'Virginia Products': [
+      'Virginia Classic 250g',
+      'Virginia Chicken Hotdog 250g (Blue)',
+      'Virginia Classic 500g',
+      'Virginia Chicken Hotdog w/ Cheese (Jumbo)',
+      'Virginia Classic 1kilo',
+      'Virginia w/ Cheese 1 kilo',
+      'Chicken Longganisa',
+    ],
+    'Big Shot Products': [
+      'Big shot ball 500g',
+      'Big shot classic 1 kilo',
+      'Big shot w/ Cheese 1 kilo',
+    ],
+    'Beefies Products': [
+      'Beefies Classic 250g',
+      'Beefies w/ Cheese 250g',
+      'Beefies Classic 1 kilo',
+      'Beefies w/ Cheese 1 kilo',
+    ],
+    'Purefoods': [
+      'TJ Classic 1 kilo',
+      'TJ Cheesedog 1 kilo',
+      'TJ Classic 250g',
+      'Star Nuggets',
+      'Crazy Cut Nuggets',
+      'Chicken Breast Nuggets',
+      'TJ Hotdog w/ Cheese 250g',
+      'TJ Balls 500g',
+      'TJ Chicken Jumbo',
+      'TJ Cocktail',
+      'TJ Cheesedog (Small)',
+      'TJ Classic (Small)',
+    ],
+    'Chicken': [
+      'Chicken Roll',
+      'Chicken Loaf',
+      'Chicken Ham',
+      'Chicken Tocino',
+      'Champion Chicken Hotdog',
+      'Chicken Lumpia',
+      'Chicken Chorizo',
+    ],
+    'Pork': [
+      'Pork Chop',
+      'Pork Pata',
+      'Pork Belly',
+      'Hamleg/Square Cut',
+      'Pork Longganisa',
+      'Pork Tocino',
+      'Pork Chorizo',
+      'Pork Lumpia',
+    ],
+    'Others': [
+      'Burger Patty',
+      'Ganada Sweet Ham',
+      'Siomai Dimsum',
+      'Beef Chorizo',
+      'Squidball Kimsea',
+      'Squidball Holiday',
+      'Tocino Roll',
+      'Orlian',
+    ],
+  };
+
   final TextEditingController quantityController = TextEditingController();
   final TextEditingController unitPriceController = TextEditingController();
 
@@ -37,11 +104,11 @@ class _AddPageState extends State<AddPage> {
 
   // Save product
   Future<void> _saveProduct() async {
-    String productName = productNameController.text.trim();
+  String? productName = selectedProductName?.trim();
     String quantity = quantityController.text.trim();
     String unitPrice = unitPriceController.text.trim();
 
-    if (productName.isEmpty || quantity.isEmpty || unitPrice.isEmpty) {
+  if (productName == null || productName.isEmpty || quantity.isEmpty || unitPrice.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all fields")),
@@ -49,8 +116,8 @@ class _AddPageState extends State<AddPage> {
       return;
     }
 
-    await dbHelper.insertOrAccumulateProduct(
-      productName: productName,
+      await dbHelper.insertOrAccumulateProduct(
+      productName: productName!,
       category: selectedCategory,
       quantity: int.parse(quantity),
       unitPrice: double.parse(unitPrice),
@@ -153,18 +220,41 @@ class _AddPageState extends State<AddPage> {
                       const Text("Product Name",
                           style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: productNameController,
-                        decoration: InputDecoration(
-                          hintText: "Enter product name",
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
+                      Builder(builder: (context) {
+                        final availableProducts = productsByCategory[selectedCategory] ?? [];
+                        // Ensure a default selection exists
+                        if (selectedProductName == null && availableProducts.isNotEmpty) {
+                          selectedProductName = availableProducts.first;
+                        } else if (!availableProducts.contains(selectedProductName)) {
+                          // If the current selection isn't in the newly selected category, reset
+                          selectedProductName = availableProducts.isNotEmpty ? availableProducts.first : null;
+                        }
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none,
+                            border: Border.all(color: Colors.grey.shade300),
                           ),
-                        ),
-                      ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedProductName,
+                              isExpanded: true,
+                              hint: const Text('Select product'),
+                              items: availableProducts.map((p) => DropdownMenuItem<String>(
+                                value: p,
+                                child: Text(p),
+                              )).toList(),
+                              onChanged: (String? newValue) {
+                                setState(() {
+                                  selectedProductName = newValue;
+                                });
+                              },
+                            ),
+                          ),
+                        );
+                      }),
 
                       const SizedBox(height: 16),
 
