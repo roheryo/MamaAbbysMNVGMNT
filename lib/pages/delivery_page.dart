@@ -1034,73 +1034,102 @@ void _filterByStatus(String? status) {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("View Details"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Customer: ${delivery['customerName']}"),
-            Text("Location: ${delivery['location']}"),
-            Text("Contact: ${delivery['customerContact']}"),
-            Text("Product Category: ${delivery['category'] ?? ''}"),
-            Text("Product: ${product['productName'] ?? ''}"),
-            Text("Quantity: ${delivery['quantity'] ?? ''}"),
-            Text(
-              "Status: ${delivery['status'] ?? 'Pending'}",
-              style: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
+        content: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: double.maxFinite, child: Text("Customer: ${delivery['customerName']}", softWrap: true)),
+                const SizedBox(height: 6),
+                SizedBox(width: double.maxFinite, child: Text("Location: ${delivery['location']}", softWrap: true)),
+                const SizedBox(height: 6),
+                SizedBox(width: double.maxFinite, child: Text("Contact: ${delivery['customerContact']}", softWrap: true)),
+                const SizedBox(height: 6),
+                SizedBox(width: double.maxFinite, child: Text("Product Category: ${delivery['category'] ?? ''}", softWrap: true)),
+                const SizedBox(height: 6),
+                SizedBox(width: double.maxFinite, child: Text("Product: ${product['productName'] ?? ''}", softWrap: true)),
+                const SizedBox(height: 6),
+                SizedBox(width: double.maxFinite, child: Text("Quantity: ${delivery['quantity'] ?? ''}", softWrap: true)),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.maxFinite,
+                  child: Text(
+                    "Status: ${delivery['status'] ?? 'Pending'}",
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    softWrap: true,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Builder(
+                  builder: (_) {
+                    final dt = _tryParseDate(delivery['createdAt']);
+                    final dateText = dt != null ? dt.toLocal().toString() : (delivery['createdAt']?.toString() ?? 'N/A');
+                    return SizedBox(width: double.maxFinite, child: Text("Delivery Date: $dateText", softWrap: true));
+                  },
+                ),
+
+                const SizedBox(height: 12),
+                // Move Edit Date and Cancel Delivery buttons under content so they're not cramped to the left
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (delivery['status'] != 'Delivered' && delivery['status'] != 'Cancelled') ...[
+                      ElevatedButton(
+                        onPressed: () async {
+                          // Edit delivery date
+                          final DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: _tryParseDate(delivery['createdAt'])?.toLocal() ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            // Save updated createdAt as ISO string
+                            final iso = picked.toIso8601String();
+                            await DatabaseHelper().updateDelivery(delivery['id'], {'createdAt': iso});
+                            await _refreshDeliveriesAndCheckOverdue();
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Delivery date updated')),
+                            );
+                            Navigator.pop(context);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text("Edit Date"),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context); // Close dialog first
+                          await _cancelDelivery(delivery['id']);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text("Cancel Delivery"),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ),
-            Builder(
-              builder: (_) {
-                final dt = _tryParseDate(delivery['createdAt']);
-                final dateText = dt != null ? dt.toLocal().toString() : (delivery['createdAt']?.toString() ?? 'N/A');
-                return Text("Delivery Date: $dateText");
-              },
-            ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text("Close"),
           ),
-          if (delivery['status'] != 'Delivered' && delivery['status'] != 'Cancelled') ...[
-            ElevatedButton(
-              onPressed: () async {
-                // Edit delivery date
-                final DateTime? picked = await showDatePicker(
-                  context: context,
-                  initialDate: _tryParseDate(delivery['createdAt'])?.toLocal() ?? DateTime.now(),
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2100),
-                );
-                if (picked != null) {
-                  // Save updated createdAt as ISO string
-                  final iso = picked.toIso8601String();
-                  await DatabaseHelper().updateDelivery(delivery['id'], {'createdAt': iso});
-                  await _refreshDeliveriesAndCheckOverdue();
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Delivery date updated')),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text("Edit Date"),
-            ),
-
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context); // Close dialog first
-                await _cancelDelivery(delivery['id']);
-              },
-              child: const Text("Cancel Delivery"),
-            ),
-          ],
         ],
       ),
     );
@@ -1414,44 +1443,9 @@ void _filterByStatus(String? status) {
                           ],
                         ),
                         subtitle: Text('Status: $groupStatus • Date: $createdAtText'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextButton(
-                              onPressed: () {
-                                // Show group details: use the first delivery as representative but allow editing to update all
-                                _showGroupDetails(deliveriesInGroup);
-                              },
-                              child: const Text('View'),
-                            ),
-                            if (groupStatus.toLowerCase() != 'delivered' && groupStatus.toLowerCase() != 'cancelled')
-                              TextButton(
-                                onPressed: () => _markGroupAsDone(groupIds),
-                                child: const Text('Done'),
-                              ),
-                            if (groupStatus.toLowerCase() != 'cancelled')
-                              TextButton(
-                                onPressed: () async {
-                                  final confirmed = await showDialog<bool>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: const Text('Confirm Cancel'),
-                                      content: const Text('Cancel all deliveries in this group? This will restore stock.'),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-                                        ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
-                                      ],
-                                    ),
-                                  );
-                                  if (confirmed == true) {
-                                    await _cancelGroupDeliveries(deliveriesInGroup);
-                                  }
-                                },
-                                child: const Text('Cancel'),
-                              ),
-                          ],
-                        ),
-                        children: deliveriesInGroup.map((delivery) {
+                        // Remove trailing buttons; show action buttons under the children for clearer layout
+                        trailing: null,
+                        children: deliveriesInGroup.map<Widget>((delivery) {
                           final product = allProducts.firstWhere((p) => p['id'] == delivery['productId'], orElse: () => {});
                           return ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1479,7 +1473,51 @@ void _filterByStatus(String? status) {
                               ],
                             ),
                           );
-                        }).toList(),
+                        }).toList()
+                        // After listing individual deliveries, show group-level buttons in a padded row
+                        ..add(
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () {
+                                    _showGroupDetails(deliveriesInGroup);
+                                  },
+                                  child: const Text('View'),
+                                ),
+                                const SizedBox(width: 8),
+                                if (groupStatus.toLowerCase() != 'delivered' && groupStatus.toLowerCase() != 'cancelled')
+                                  TextButton(
+                                    onPressed: () => _markGroupAsDone(groupIds),
+                                    child: const Text('Done'),
+                                  ),
+                                const SizedBox(width: 8),
+                                if (groupStatus.toLowerCase() != 'cancelled')
+                                  TextButton(
+                                    onPressed: () async {
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          title: const Text('Confirm Cancel'),
+                                          content: const Text('Cancel all deliveries in this group? This will restore stock.'),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+                                            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirmed == true) {
+                                        await _cancelGroupDeliveries(deliveriesInGroup);
+                                      }
+                                    },
+                                    child: const Text('Cancel'),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     );
                   },
