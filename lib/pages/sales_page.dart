@@ -275,6 +275,7 @@ class _SalesPageState extends State<SalesPage> {
 
 
   // ===== Helper Widget for Bottom Navigation =====
+  // ignore: unused_element
   Widget _buildNavItem({
     required IconData icon,
     required String label,

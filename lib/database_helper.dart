@@ -98,7 +98,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), "app.db");
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -247,6 +247,22 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_sale_date ON store_sales(sale_date)');
     await db.execute('CREATE INDEX idx_month ON store_sales(month)');
     await db.execute('CREATE INDEX idx_holiday_flag ON store_sales(holiday_flag)');
+
+    // Categories and custom product names tables (for user-added categories/products)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS categories(
+        name TEXT PRIMARY KEY
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS custom_product_names(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL,
+        name TEXT NOT NULL,
+        UNIQUE(category, name)
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -432,6 +448,71 @@ class DatabaseHelper {
         END
       ''');
     }
+
+    if (oldVersion < 11) {
+      // Create categories and custom product names tables for user additions
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS categories(
+          name TEXT PRIMARY KEY
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS custom_product_names(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          category TEXT NOT NULL,
+          name TEXT NOT NULL,
+          UNIQUE(category, name)
+        )
+      ''');
+    }
+  }
+
+  // ===================== Dynamic Categories & Custom Product Names =====================
+
+  /// Insert a new category into the categories table. Ignored if already exists.
+  Future<void> insertCategory(String name) async {
+    final db = await database;
+    if (name.trim().isEmpty) return;
+    await db.insert('categories', {'name': name.trim()}, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  /// Insert a custom product name under a category. Ignored if duplicate.
+  Future<void> insertCustomProductName({required String category, required String name}) async {
+    final db = await database;
+    if (category.trim().isEmpty || name.trim().isEmpty) return;
+    await db.insert(
+      'custom_product_names',
+      {'category': category.trim(), 'name': name.trim()},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  /// Fetch combined list of categories: static catalog keys + categories table
+  Future<List<String>> fetchCategories() async {
+    final db = await database;
+    final rows = await db.query('categories');
+    final custom = rows.map((r) => r['name']?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+    final combined = <String>{};
+    combined.addAll(productCatalog.keys);
+    combined.addAll(custom);
+    final list = combined.toList();
+    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
+  }
+
+  /// Fetch product names for a category combining static catalog entries and custom product names
+  Future<List<String>> fetchProductNamesForCategory(String category) async {
+    final db = await database;
+    final base = productCatalog[category] ?? const [];
+    final rows = await db.query('custom_product_names', where: 'category = ?', whereArgs: [category]);
+    final custom = rows.map((r) => r['name']?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+    final combined = <String>{};
+    combined.addAll(base);
+    combined.addAll(custom);
+    final list = combined.toList();
+    list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return list;
   }
 
   Future<void> _ensureDeliveriesQuantityColumn(Database db) async {
@@ -571,9 +652,7 @@ class DatabaseHelper {
     int deliveryId = id is int ? id : int.parse(id.toString());
     return await db.update('deliveries', {'status': status}, where: 'id = ?', whereArgs: [deliveryId]);
   }
-  
-  /// Update delivery record fields for a given delivery id.
-  /// Example: updateDelivery(5, {'createdAt': DateTime.now().toIso8601String()})
+
   Future<int> updateDelivery(int id, Map<String, dynamic> fields) async {
     final db = await database;
     return await db.update('deliveries', fields, where: 'id = ?', whereArgs: [id]);

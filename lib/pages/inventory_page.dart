@@ -17,25 +17,8 @@ class _InventoryPageState extends State<InventoryPage> {
   bool isSelectionMode = false;
   final Set<int> selectedProducts = {};
   bool hasUnread = false;
-
-  final List<String> categories = [
-    'All',
-    'Pork',
-    'Virginia Products',
-    'Purefoods Products',
-    'Big Shot Products',
-    'Chicken',
-    'Beefies Products',
-    'Siomai',
-    'Nuggets',
-    'Squidballs',
-    'Tj Products',
-    'Beef',
-    'Champion Products',
-    'Tocino',
-    'Longganisa',
-    'Others',
-  ];
+  final List<String> categories = ['All'];
+  final DatabaseHelper db = DatabaseHelper();
 
   List<Map<String, dynamic>> allProducts = [];
   List<Map<String, dynamic>> products = [];
@@ -44,7 +27,19 @@ class _InventoryPageState extends State<InventoryPage> {
   void initState() {
     super.initState();
     _loadProducts();
+    _loadCategories();
     _refreshUnread();
+  }
+
+  Future<void> _loadCategories() async {
+    final fetched = await db.fetchCategories();
+    if (!mounted) return;
+    setState(() {
+      categories.clear();
+      categories.add('All');
+      categories.addAll(fetched);
+      if (!categories.contains(selectedCategory)) selectedCategory = 'All';
+    });
   }
 
   void _sortProducts(List<Map<String, dynamic>> list) {
@@ -455,6 +450,7 @@ class _InventoryPageState extends State<InventoryPage> {
     }
   }
 
+  // ignore: unused_element
   Widget _buildNavItem({
     required IconData icon,
     required String label,
@@ -737,7 +733,11 @@ Widget build(BuildContext context) {
                             MaterialPageRoute(
                               builder: (_) => const SettingsPage(),
                             ),
-                          );
+                          ).then((_) async {
+                            await _loadCategories();
+                            await _loadProducts();
+                            await _refreshUnread();
+                          });
                         },
                       ),
                     ),

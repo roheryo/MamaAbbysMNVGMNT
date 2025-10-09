@@ -14,78 +14,12 @@ class _AddPageState extends State<AddPage> {
   String selectedCategory = 'Pork';
   List<String> categories = [];
   String? selectedProductName;
-
-  // Product lists per category
-  final Map<String, List<String>> productsByCategory = {
-    'Virginia Products': [
-      'Virginia Classic 250g',
-      'Virginia Chicken Hotdog 250g (Blue)',
-      'Virginia Classic 500g',
-      'Virginia Chicken Hotdog w/ Cheese (Jumbo)',
-      'Virginia Classic 1kilo',
-      'Virginia w/ Cheese 1 kilo',
-      'Chicken Longganisa',
-    ],
-    'Big Shot Products': [
-      'Big shot ball 500g',
-      'Big shot classic 1 kilo',
-      'Big shot w/ Cheese 1 kilo',
-    ],
-    'Beefies Products': [
-      'Beefies Classic 250g',
-      'Beefies w/ Cheese 250g',
-      'Beefies Classic 1 kilo',
-      'Beefies w/ Cheese 1 kilo',
-    ],
-    'Purefoods': [
-      'TJ Classic 1 kilo',
-      'TJ Cheesedog 1 kilo',
-      'TJ Classic 250g',
-      'Star Nuggets',
-      'Crazy Cut Nuggets',
-      'Chicken Breast Nuggets',
-      'TJ Hotdog w/ Cheese 250g',
-      'TJ Balls 500g',
-      'TJ Chicken Jumbo',
-      'TJ Cocktail',
-      'TJ Cheesedog (Small)',
-      'TJ Classic (Small)',
-    ],
-    'Chicken': [
-      'Chicken Roll',
-      'Chicken Loaf',
-      'Chicken Ham',
-      'Chicken Tocino',
-      'Champion Chicken Hotdog',
-      'Chicken Lumpia',
-      'Chicken Chorizo',
-    ],
-    'Pork': [
-      'Pork Chop',
-      'Pork Pata',
-      'Pork Belly',
-      'Hamleg/Square Cut',
-      'Pork Longganisa',
-      'Pork Tocino',
-      'Pork Chorizo',
-      'Pork Lumpia',
-    ],
-    'Others': [
-      'Burger Patty',
-      'Ganada Sweet Ham',
-      'Siomai Dimsum',
-      'Beef Chorizo',
-      'Squidball Kimsea',
-      'Squidball Holiday',
-      'Tocino Roll',
-      'Orlian',
-    ],
-  };
+  final DatabaseHelper dbHelper = DatabaseHelper();
+  List<String> productsForSelectedCategory = [];
 
   final TextEditingController quantityController = TextEditingController();
   final TextEditingController unitPriceController = TextEditingController();
 
-  final DatabaseHelper dbHelper = DatabaseHelper();
 
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
@@ -117,7 +51,7 @@ class _AddPageState extends State<AddPage> {
     }
 
       await dbHelper.insertOrAccumulateProduct(
-      productName: productName!,
+        productName: productName,
       category: selectedCategory,
       quantity: int.parse(quantity),
       unitPrice: double.parse(unitPrice),
@@ -134,12 +68,23 @@ class _AddPageState extends State<AddPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Initialize categories once
+    // Initialize categories and product names once
     if (categories.isEmpty) {
-      categories = dbHelper.catalogCategories;
-      if (categories.isNotEmpty && !categories.contains(selectedCategory)) {
-        selectedCategory = categories.first;
-      }
+      dbHelper.fetchCategories().then((f) {
+        if (!mounted) return;
+        setState(() {
+          categories = f;
+          if (categories.isNotEmpty && !categories.contains(selectedCategory)) selectedCategory = categories.first;
+        });
+        // load product names for the selected category
+        dbHelper.fetchProductNamesForCategory(selectedCategory).then((p) {
+          if (!mounted) return;
+          setState(() {
+            productsForSelectedCategory = p;
+            selectedProductName = productsForSelectedCategory.isNotEmpty ? productsForSelectedCategory.first : null;
+          });
+        });
+      });
     }
 
     return Scaffold(
@@ -209,6 +154,14 @@ class _AddPageState extends State<AddPage> {
                           if (newValue != null) {
                             setState(() {
                               selectedCategory = newValue;
+                              // fetch updated product names for the selected category
+                              dbHelper.fetchProductNamesForCategory(selectedCategory).then((p) {
+                                if (!mounted) return;
+                                setState(() {
+                                  productsForSelectedCategory = p;
+                                  selectedProductName = productsForSelectedCategory.isNotEmpty ? productsForSelectedCategory.first : null;
+                                });
+                              });
                             });
                           }
                         },
@@ -221,7 +174,7 @@ class _AddPageState extends State<AddPage> {
                           style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       Builder(builder: (context) {
-                        final availableProducts = productsByCategory[selectedCategory] ?? [];
+                        final availableProducts = productsForSelectedCategory;
                         // Ensure a default selection exists
                         if (selectedProductName == null && availableProducts.isNotEmpty) {
                           selectedProductName = availableProducts.first;
@@ -242,10 +195,7 @@ class _AddPageState extends State<AddPage> {
                               value: selectedProductName,
                               isExpanded: true,
                               hint: const Text('Select product'),
-                              items: availableProducts.map((p) => DropdownMenuItem<String>(
-                                value: p,
-                                child: Text(p),
-                              )).toList(),
+                              items: availableProducts.map((p) => DropdownMenuItem<String>(value: p, child: Text(p))).toList(),
                               onChanged: (String? newValue) {
                                 setState(() {
                                   selectedProductName = newValue;

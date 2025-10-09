@@ -305,6 +305,15 @@ void _filterByStatus(String? status) {
     await _refreshDeliveriesAndCheckOverdue();
   }
 
+  Future<void> _markGroupAsDone(List<int> ids) async {
+    if (ids.isEmpty) return;
+    final db = DatabaseHelper();
+    for (var id in ids) {
+      await db.updateDeliveryStatus(id, 'Delivered');
+    }
+    await _refreshDeliveriesAndCheckOverdue();
+  }
+
    Future<void> _cancelDelivery(int id) async {
   final db = DatabaseHelper();
 
@@ -328,14 +337,371 @@ void _filterByStatus(String? status) {
       await db.updateProduct(productId, {"quantity": restoredQty});
     }
   }
+    // Update delivery status to Cancelled
+    await db.updateDeliveryStatus(id, "Cancelled");
+    await _refreshDeliveriesAndCheckOverdue();
+  }
+  Future<void> _cancelGroupDeliveries(List<Map<String, dynamic>> deliveriesToCancel) async {
+    if (deliveriesToCancel.isEmpty) return;
+    final db = DatabaseHelper();
 
-  // Update delivery status to Cancelled
-  await db.updateDeliveryStatus(id, "Cancelled");
-  await _refreshDeliveriesAndCheckOverdue();
-}
+    // For each delivery, restore product qty and set status to Cancelled
+    final products = await db.fetchProducts();
+    for (var delivery in deliveriesToCancel) {
+      final productId = delivery['productId'] as int?;
+      final quantity = (delivery['quantity'] is int) ? delivery['quantity'] as int : int.tryParse((delivery['quantity'] ?? '0').toString()) ?? 0;
+      if (productId != null) {
+        final product = products.firstWhere((p) => p['id'] == productId, orElse: () => {});
+        if (product.isNotEmpty) {
+          final currentQty = product['quantity'] as int;
+          final restoredQty = currentQty + quantity;
+          await db.updateProduct(productId, {"quantity": restoredQty});
+        }
+      }
 
+      final id = delivery['id'];
+      if (id is int) {
+        await db.updateDeliveryStatus(id, 'Cancelled');
+      }
+    }
 
+    await _refreshDeliveriesAndCheckOverdue();
+  }
 
+  void _showGroupDetails(List<Map<String, dynamic>> deliveries) {
+    if (deliveries.isEmpty) return;
+    // Use a representative delivery for editable fields
+    final representative = deliveries.first;
+    DateTime? deliveryDate = _tryParseDate(representative['createdAt']) ?? DateTime.now();
+
+    // Prepare controllers for quantities
+    final qtyControllers = <TextEditingController>[];
+    for (var d in deliveries) {
+      qtyControllers.add(TextEditingController(text: (d['quantity'] ?? '').toString()));
+    }
+
+    // Temp storage for adding new product lines to this group
+    List<Map<String, dynamic>> newProductLines = [];
+    String? addCategory = categories.isNotEmpty ? categories[0] : null;
+    List<Map<String, dynamic>> availableProductsForAdd = [];
+    Map<String, dynamic>? selectedProductToAdd;
+    final addQtyController = TextEditingController();
+
+    void updateAvailableProductsForAdd(String? cat) {
+      if (cat == null) return;
+      availableProductsForAdd = allProducts.where((p) => p['category'] == cat).toList();
+      selectedProductToAdd = null;
+      addQtyController.text = '';
+    }
+
+    updateAvailableProductsForAdd(addCategory);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Delivery Details (Group)'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Customer: ${representative['customerName'] ?? ''}'),
+                  Text('Location: ${representative['location'] ?? ''}'),
+                  Text('Contact: ${representative['customerContact'] ?? ''}'),
+                  const SizedBox(height: 8),
+                  const Text('Products (edit quantities as needed):'),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    width: double.maxFinite,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(deliveries.length, (i) {
+                        final d = deliveries[i];
+                        final p = allProducts.firstWhere((p) => p['id'] == d['productId'], orElse: () => {});
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6.0),
+                          child: Row(
+                            children: [
+                              Expanded(child: Text(p.isNotEmpty ? (p['productName'] ?? '') : (d['category'] ?? 'Product'))),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 100,
+                                child: TextField(
+                                  controller: qtyControllers[i],
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(isDense: true, labelText: 'Qty'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // --- Add Product to Group Section ---
+                  const Divider(),
+                  const SizedBox(height: 6),
+                  const Text('Add Product to this Delivery Group', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  // Category dropdown
+                  DropdownButtonFormField<String>(
+                    value: addCategory,
+                    decoration: const InputDecoration(labelText: 'Category', isDense: true),
+                    items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                    onChanged: (v) {
+                      addCategory = v;
+                      updateAvailableProductsForAdd(addCategory);
+                      setState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  // Product dropdown
+                  ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: 200, maxWidth: MediaQuery.of(context).size.width * 0.85),
+                    child: DropdownButtonFormField<Map<String, dynamic>>(
+                      isExpanded: true,
+                      value: selectedProductToAdd,
+                      decoration: const InputDecoration(labelText: 'Product', isDense: true),
+                      items: availableProductsForAdd.map((p) => DropdownMenuItem(value: p, child: Text(p['productName'] ?? ''))).toList(),
+                      onChanged: (v) {
+                        selectedProductToAdd = v;
+                        addQtyController.text = '';
+                        setState(() {});
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: addQtyController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Quantity', isDense: true),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            if (selectedProductToAdd == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a product')));
+                              return;
+                            }
+                            final entered = int.tryParse(addQtyController.text) ?? 0;
+                            if (entered <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid quantity')));
+                              return;
+                            }
+
+                            final prodId = selectedProductToAdd!['id'] as int?;
+                            final availableStock = (selectedProductToAdd!['quantity'] as int?) ?? 0;
+
+                            // Consider existing quantity in this group and already queued new lines for same product
+                            final existingInGroup = deliveries.firstWhere((d) => d['productId'] == prodId, orElse: () => {});
+                            final existingQty = existingInGroup.isNotEmpty ? (existingInGroup['quantity'] as int) : 0;
+                            final alreadyQueued = newProductLines.where((l) => (l['product']?['id'] ?? -1) == prodId).fold<int>(0, (s, l) => s + ((l['quantity'] as int?) ?? 0));
+                            final totalRequested = entered + existingQty + alreadyQueued;
+
+                            if (totalRequested > availableStock) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Available stock is $availableStock; requested total would be $totalRequested')));
+                              return;
+                            }
+
+                            // If same product already in newProductLines, accumulate
+                            final existingIndex = newProductLines.indexWhere((l) => (l['product']?['id'] ?? -1) == prodId);
+                            if (existingIndex >= 0) {
+                              newProductLines[existingIndex]['quantity'] = (newProductLines[existingIndex]['quantity'] as int) + entered;
+                            } else {
+                              newProductLines.add({'product': selectedProductToAdd, 'quantity': entered});
+                            }
+
+                            // clear selection
+                            selectedProductToAdd = null;
+                            addQtyController.text = '';
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Product'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (newProductLines.isNotEmpty) ...[
+                    const Text('New products to add:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Column(
+                      children: newProductLines.map((line) {
+                        final p = line['product'] ?? {};
+                        final qty = line['quantity'] ?? 0;
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(p['productName'] ?? ''),
+                          subtitle: Text('Quantity: $qty'),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              newProductLines.remove(line);
+                              setState(() {});
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: deliveryDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                      );
+                      if (pickedDate != null) {
+                        final pickedTime = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.fromDateTime(deliveryDate ?? DateTime.now()),
+                        );
+                        if (pickedTime != null) {
+                          deliveryDate = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, pickedTime.hour, pickedTime.minute);
+                          setState(() {});
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.calendar_today),
+                    label: Text(deliveryDate != null ? deliveryDate.toString() : 'Pick Delivery Date & Time'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+              ElevatedButton(
+                onPressed: () async {
+                  final db = DatabaseHelper();
+
+                  // Validate and compute stock deltas for edited quantities
+                  final productsFromDb = await db.fetchProducts();
+                  final updates = <Map<String, dynamic>>[];
+
+                  for (var i = 0; i < deliveries.length; i++) {
+                    final d = deliveries[i];
+                    final oldQty = (d['quantity'] is int) ? d['quantity'] as int : int.tryParse((d['quantity'] ?? '0').toString()) ?? 0;
+                    final newQty = int.tryParse(qtyControllers[i].text) ?? 0;
+                    final prodId = d['productId'] as int?;
+                    if (newQty <= 0) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter valid quantities')));
+                      return;
+                    }
+                    if (prodId == null) continue;
+
+                    final prod = productsFromDb.firstWhere((p) => p['id'] == prodId, orElse: () => {});
+                    final currentStock = prod.isNotEmpty ? (prod['quantity'] as int) : 0;
+
+                    final delta = newQty - oldQty; // positive => need more stock, negative => restore stock
+                    if (delta > 0 && delta > currentStock) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Not enough stock for ${prod['productName'] ?? 'product'} (need $delta, have $currentStock)')));
+                      return;
+                    }
+
+                    updates.add({'id': d['id'], 'productId': prodId, 'oldQty': oldQty, 'newQty': newQty, 'delta': delta});
+                  }
+
+                  // Validate new product lines against stock
+                  final productsNow = await db.fetchProducts();
+                  for (var line in newProductLines) {
+                    final p = line['product'] as Map<String, dynamic>;
+                    final requested = line['quantity'] as int;
+                    final prodFromDb = productsNow.firstWhere((x) => x['id'] == p['id'], orElse: () => {});
+                    final available = prodFromDb.isNotEmpty ? (prodFromDb['quantity'] as int) : 0;
+                    if (requested > available) {
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Available stock for ${p['productName']} is $available, cannot add $requested')));
+                      return;
+                    }
+                  }
+
+                  // Apply updates: update deliveries and product quantities
+                  for (var u in updates) {
+                    final id = u['id'];
+                    final prodId = u['productId'] as int;
+                    final delta = u['delta'] as int;
+                    final newQty = u['newQty'] as int;
+
+                    // Update delivery row
+                    if (id is int) await db.updateDelivery(id, {'quantity': newQty});
+
+                    // Update product stock
+                    final prodRow = (await db.fetchProducts()).firstWhere((p) => p['id'] == prodId, orElse: () => {});
+                    final curStock = prodRow.isNotEmpty ? (prodRow['quantity'] as int) : 0;
+                    final updatedStock = curStock - delta; // delta positive reduces stock; negative increases
+                    await db.updateProduct(prodId, {'quantity': updatedStock < 0 ? 0 : updatedStock});
+                  }
+
+                  // Insert or merge new product lines
+                  for (var line in newProductLines) {
+                    final p = line['product'] as Map<String, dynamic>;
+                    final requested = line['quantity'] as int;
+
+                    // If group already has a delivery for this product, update that delivery instead of inserting a new one
+                    final existing = deliveries.firstWhere((d) => d['productId'] == p['id'], orElse: () => {});
+                    if (existing.isNotEmpty) {
+                      final id = existing['id'];
+                      final oldQty = (existing['quantity'] is int) ? existing['quantity'] as int : int.tryParse((existing['quantity'] ?? '0').toString()) ?? 0;
+                      final newQty = oldQty + requested;
+                      if (id is int) await db.updateDelivery(id, {'quantity': newQty});
+
+                      // decrement stock
+                      final prodRow = (await db.fetchProducts()).firstWhere((x) => x['id'] == p['id'], orElse: () => {});
+                      final curStock = prodRow.isNotEmpty ? (prodRow['quantity'] as int) : 0;
+                      await db.updateProduct(p['id'] as int, {'quantity': (curStock - requested) < 0 ? 0 : (curStock - requested)});
+                    } else {
+                      // Insert a new delivery row for this group using representative customer info
+                      await db.insertDelivery({
+                        "customerName": representative['customerName'],
+                        "customerContact": representative['customerContact'],
+                        "location": representative['location'],
+                        "category": p['category'] ?? representative['category'],
+                        "productId": p['id'],
+                        "quantity": requested,
+                        "createdAt": deliveryDate?.toIso8601String() ?? DateTime.now().toIso8601String(),
+                        "status": representative['status'] ?? 'Pending',
+                      });
+
+                      final prodRow = (await db.fetchProducts()).firstWhere((x) => x['id'] == p['id'], orElse: () => {});
+                      final curStock = prodRow.isNotEmpty ? (prodRow['quantity'] as int) : 0;
+                      await db.updateProduct(p['id'] as int, {'quantity': (curStock - requested) < 0 ? 0 : (curStock - requested)});
+                    }
+                  }
+
+                  // Update createdAt if changed
+                  if (deliveryDate != null) {
+                    for (var d in deliveries) {
+                      final id = d['id'];
+                      if (id is int) await db.updateDelivery(id, {'createdAt': deliveryDate!.toIso8601String()});
+                    }
+                    // Also update newly inserted rows (they were created with deliveryDate already)
+                  }
+
+                  await db.checkLowStockProducts();
+                  await _refreshDeliveriesAndCheckOverdue();
+                  if (mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  
 
   void _showAddDeliveryDialog() {
   final customerController = TextEditingController();
@@ -346,6 +712,9 @@ void _filterByStatus(String? status) {
   List<Map<String, dynamic>> availableProducts = [];
   Map<String, dynamic>? selectedProduct;
   DateTime? deliveryDate = selectedDateTime ?? DateTime.now();
+
+  // Holds the list of product lines the user wants to deliver for this customer
+  final List<Map<String, dynamic>> productLines = [];
 
   void updateProductsByCategory(String? cat) {
     if (cat == null) return;
@@ -360,11 +729,20 @@ void _filterByStatus(String? status) {
     context: context,
     builder: (_) => StatefulBuilder(
       builder: (context, setState) {
+        int alreadyRequestedQuantityForProduct(int productId) {
+          final existing = productLines.firstWhere(
+            (l) => (l['product']?['id'] ?? -1) == productId,
+            orElse: () => {},
+          );
+          if (existing.isEmpty) return 0;
+          return (existing['quantity'] as int?) ?? 0;
+        }
+
         return AlertDialog(
           title: const Text("Add New Delivery"),
           content: ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.7,
+              maxHeight: MediaQuery.of(context).size.height * 0.75,
               maxWidth: MediaQuery.of(context).size.width * 0.9,
             ),
             child: SingleChildScrollView(
@@ -399,6 +777,7 @@ void _filterByStatus(String? status) {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   // Category Dropdown
                   DropdownButtonFormField<String>(
                     initialValue: category,
@@ -416,7 +795,7 @@ void _filterByStatus(String? status) {
                     },
                   ),
                   const SizedBox(height: 8),
-                  
+
                   // Wrap dropdown in a ConstrainedBox and set isExpanded to avoid overflow
                   ConstrainedBox(
                     constraints: BoxConstraints(minWidth: 200, maxWidth: MediaQuery.of(context).size.width * 0.85),
@@ -455,7 +834,80 @@ void _filterByStatus(String? status) {
                     ),
                     keyboardType: TextInputType.number,
                   ),
+
                   const SizedBox(height: 8),
+                  // Add product line button
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            if (selectedProduct == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a product')));
+                              return;
+                            }
+                            final enteredQty = int.tryParse(quantityController.text) ?? 0;
+                            if (enteredQty <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid quantity')));
+                              return;
+                            }
+
+                            final availableStock = (selectedProduct!['quantity'] as int?) ?? 0;
+                            final alreadyRequested = alreadyRequestedQuantityForProduct(selectedProduct!['id'] as int);
+                            if (enteredQty + alreadyRequested > availableStock) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Available stock is $availableStock, cannot add ${enteredQty + alreadyRequested}')));
+                              return;
+                            }
+
+                            // If same product already in lines, increment its quantity
+                            final existingIndex = productLines.indexWhere((l) => (l['product']?['id'] ?? -1) == (selectedProduct!['id'] as int));
+                            if (existingIndex >= 0) {
+                              productLines[existingIndex]['quantity'] = (productLines[existingIndex]['quantity'] as int) + enteredQty;
+                            } else {
+                              productLines.add({
+                                'product': selectedProduct,
+                                'quantity': enteredQty,
+                              });
+                            }
+
+                            // Clear selection for next line
+                            selectedProduct = null;
+                            quantityController.text = '';
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.add_shopping_cart),
+                          label: const Text('Add Product to Delivery'),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 8),
+                  // Show added product lines
+                  if (productLines.isNotEmpty) ...[
+                    const Align(alignment: Alignment.centerLeft, child: Text('Products to deliver:', style: TextStyle(fontWeight: FontWeight.bold))),
+                    const SizedBox(height: 6),
+                    Column(
+                      children: productLines.map((line) {
+                        final p = line['product'] ?? {};
+                        final qty = line['quantity'] ?? 0;
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(p['productName'] ?? ''),
+                          subtitle: Text('Quantity: $qty'),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              productLines.remove(line);
+                              setState(() {});
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+
                   // Delivery Date Button
                   SizedBox(
                     width: double.infinity,
@@ -510,58 +962,56 @@ void _filterByStatus(String? status) {
                 if (customerController.text.isEmpty ||
                     contactController.text.isEmpty ||
                     locationController.text.isEmpty ||
-                    selectedProduct == null ||
                     deliveryDate == null ||
-                    quantityController.text.isEmpty) {
+                    productLines.isEmpty) {
                   if (mounted) {
                     ScaffoldMessenger.of(currentContext).showSnackBar(
-                      const SnackBar(content: Text("Please fill all fields")),
+                      const SnackBar(content: Text("Please fill customer info and add at least one product")),
                     );
                   }
                   return;
                 }
 
-                final enteredQty = int.tryParse(quantityController.text);
-                if (enteredQty == null || enteredQty <= 0) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(currentContext).showSnackBar(
-                      const SnackBar(content: Text("Enter a valid quantity")),
-                    );
+                final db = DatabaseHelper();
+
+                // Final validation: make sure none of the requested quantities exceed current stock
+                final products = await db.fetchProducts();
+                for (var line in productLines) {
+                  final p = line['product'] as Map<String, dynamic>;
+                  final requested = line['quantity'] as int;
+                  final prodFromDb = products.firstWhere((x) => x['id'] == p['id'], orElse: () => {});
+                  final available = prodFromDb.isNotEmpty ? (prodFromDb['quantity'] as int) : 0;
+                  if (requested > available) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(currentContext).showSnackBar(
+                        SnackBar(content: Text('Available stock for ${p['productName']} is $available, cannot deliver $requested')),
+                      );
+                    }
+                    return;
                   }
-                  return;
                 }
 
-                if (enteredQty > selectedProduct!['quantity']) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(currentContext).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          "Available stock is ${selectedProduct!['quantity']}, cannot deliver $enteredQty",
-                        ),
-                      ),
-                    );
-                  }
-                  return;
+                // Insert one delivery row per product line and decrement stock accordingly
+                for (var line in productLines) {
+                  final p = line['product'] as Map<String, dynamic>;
+                  final requested = line['quantity'] as int;
+
+                  await db.insertDelivery({
+                    "customerName": customerController.text,
+                    "customerContact": contactController.text,
+                    "location": locationController.text,
+                    "category": p['category'] ?? category,
+                    "productId": p['id'],
+                    "quantity": requested,
+                    "createdAt": deliveryDate!.toIso8601String(),
+                    "status": "Pending",
+                  });
+
+                  final newQty = (p['quantity'] as int) - requested;
+                  await db.updateProduct(p['id'] as int, {"quantity": newQty < 0 ? 0 : newQty});
                 }
 
-                await DatabaseHelper().insertDelivery({
-                  "customerName": customerController.text,
-                  "customerContact": contactController.text,
-                  "location": locationController.text,
-                  "category": category,
-                  "productId": selectedProduct!['id'],
-                  "quantity": enteredQty,
-                  "createdAt": deliveryDate!.toString(),
-                  "status": "Pending",
-                });
-
-                final newQty = (selectedProduct!['quantity'] as int) - enteredQty;
-                await DatabaseHelper().updateProduct(
-                  selectedProduct!['id'] as int,
-                  {"quantity": newQty < 0 ? 0 : newQty},
-                );
-
-                await DatabaseHelper().checkLowStockProducts();
+                await db.checkLowStockProducts();
                 await _refreshDeliveriesAndCheckOverdue();
                 if (mounted) Navigator.pop(currentContext);
               },
@@ -904,92 +1354,136 @@ void _filterByStatus(String? status) {
                 ),
               ),
 
-          // ===== LIST OF DELIVERIES =====
+          // ===== LIST OF DELIVERIES (grouped by customer+contact+location+createdAt) =====
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              itemCount: filteredDeliveries.length,
-              itemBuilder: (context, index) {
-                final delivery = filteredDeliveries[index];
-                final isSelected = selectedDeliveries.contains(delivery["id"]);
-                final status = (delivery["status"] ?? "").toString().toLowerCase();
-                final isDelivered = status == "delivered";
-                final isCancelled = status == "cancelled";
-                return Card(
-                    color: status == "overdue" ? Colors.red.shade100 : null, // Light red for overdue
-                    child: ListTile(
-                      leading: isSelectionMode
-                          ? Checkbox(
-                              value: isSelected,
-                              onChanged: (val) {
-                                setState(() {
-                                  if (val == true) {
-                                    selectedDeliveries.add(delivery["id"]);
-                                  } else {
-                                    selectedDeliveries.remove(delivery["id"]);
-                                  }
-                                });
+            child: Builder(
+              builder: (context) {
+                // Group deliveries by a composite key so products added together show under one header
+                final Map<String, List<Map<String, dynamic>>> groups = {};
+                for (var d in filteredDeliveries) {
+                  final keyCust = (d['customerName'] ?? '').toString();
+                  final keyContact = (d['customerContact'] ?? '').toString();
+                  final keyLoc = (d['location'] ?? '').toString();
+                  final keyDate = (d['createdAt'] ?? '').toString();
+                  final key = '$keyCust|$keyContact|$keyLoc|$keyDate';
+                  groups.putIfAbsent(key, () => []).add(d);
+                }
+
+                final groupEntries = groups.entries.toList();
+
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  itemCount: groupEntries.length,
+                  itemBuilder: (context, gIndex) {
+                    final group = groupEntries[gIndex];
+                    final deliveriesInGroup = group.value;
+
+                    // Determine a representative status for the group
+                    String groupStatus = 'Pending';
+                    if (deliveriesInGroup.any((x) => ((x['status'] ?? '').toString().toLowerCase()) == 'overdue')) {
+                      groupStatus = 'Overdue';
+                    } else if (deliveriesInGroup.every((x) => ((x['status'] ?? '').toString().toLowerCase()) == 'delivered')) {
+                      groupStatus = 'Delivered';
+                    } else if (deliveriesInGroup.every((x) => ((x['status'] ?? '').toString().toLowerCase()) == 'cancelled')) {
+                      groupStatus = 'Cancelled';
+                    }
+
+                    // Parse customer & date details from the composite key
+                    final parts = group.key.split('|');
+                    final custName = parts.isNotEmpty ? parts[0] : '';
+                    final custContact = parts.length > 1 ? parts[1] : '';
+                    final custLoc = parts.length > 2 ? parts[2] : '';
+                    final createdAtRaw = parts.length > 3 ? parts[3] : '';
+
+                    DateTime? createdAtDt = _tryParseDate(createdAtRaw);
+                    final createdAtText = createdAtDt != null ? createdAtDt.toString() : createdAtRaw;
+
+                    // Create a list of delivery ids in this group for group-level actions
+                    final groupIds = deliveriesInGroup.map((d) => d['id'] as int).toList();
+
+                    return Card(
+                      child: ExpansionTile(
+                        key: ValueKey(group.key),
+                        title: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(custName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Text('Location: $custLoc'),
+                            Text('Contact: $custContact'),
+                          ],
+                        ),
+                        subtitle: Text('Status: $groupStatus • Date: $createdAtText'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                // Show group details: use the first delivery as representative but allow editing to update all
+                                _showGroupDetails(deliveriesInGroup);
                               },
-                            )
-                          : null,
-                      title: Text(delivery["customerName"] ?? ''),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Customer: ${delivery['customerName']}"),
-                          Text(
-                            "Status: ${delivery['status'] ?? 'Pending'}",
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
+                              child: const Text('View'),
                             ),
-                          ),
-                          Builder(
-                            builder: (_) {
-                              final dt = _tryParseDate(delivery['createdAt']);
-                              final text = dt != null ? dt.toString() : (delivery['createdAt']?.toString() ?? 'N/A');
-                              return Text("Date: $text");
-                            },
-                          ),
-                        ],
-                      ),
-                      trailing: !isSelectionMode
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
+                            if (groupStatus.toLowerCase() != 'delivered' && groupStatus.toLowerCase() != 'cancelled')
+                              TextButton(
+                                onPressed: () => _markGroupAsDone(groupIds),
+                                child: const Text('Done'),
+                              ),
+                            if (groupStatus.toLowerCase() != 'cancelled')
+                              TextButton(
+                                onPressed: () async {
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Confirm Cancel'),
+                                      content: const Text('Cancel all deliveries in this group? This will restore stock.'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+                                        ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirmed == true) {
+                                    await _cancelGroupDeliveries(deliveriesInGroup);
+                                  }
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                          ],
+                        ),
+                        children: deliveriesInGroup.map((delivery) {
+                          final product = allProducts.firstWhere((p) => p['id'] == delivery['productId'], orElse: () => {});
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                            onTap: () => _showDeliveryDetails(delivery),
+                            leading: isSelectionMode
+                                ? Checkbox(
+                                    value: selectedDeliveries.contains(delivery['id']),
+                                    onChanged: (val) {
+                                      setState(() {
+                                        if (val == true) {
+                                          selectedDeliveries.add(delivery['id']);
+                                        } else {
+                                          selectedDeliveries.remove(delivery['id']);
+                                        }
+                                      });
+                                    },
+                                  )
+                                : null,
+                            title: Text(product.isNotEmpty ? (product['productName'] ?? '') : (delivery['category'] ?? 'Product')),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                ElevatedButton(
-                                  onPressed: () => _showDeliveryDetails(delivery),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: Colors.black,
-                                    minimumSize: const Size(50, 30),
-                                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                                  ),
-                                  child: const Text(
-                                    "View",
-                                    style: TextStyle(fontSize: 10),
-                                  ),
-                                ),
-                                if (!isDelivered && !isCancelled) const SizedBox(width: 4),
-                                if (!isDelivered && !isCancelled)
-                                  ElevatedButton(
-                                    onPressed: () => _markAsDone(delivery["id"]),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: Colors.black,
-                                      minimumSize: const Size(50, 30),
-                                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                                    ),
-                                    child: const Text(
-                                      "Done",
-                                      style: TextStyle(fontSize: 10),
-                                    ),
-                                  ),
+                                Text('Quantity: ${delivery['quantity'] ?? ''}'),
+                                Text('Status: ${delivery['status'] ?? 'Pending'}'),
                               ],
-                            )
-                          : null,
-                    ),
-                  );
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  },
+                );
               },
             ),
           ),
